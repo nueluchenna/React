@@ -1,30 +1,43 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Header from './components/header.jsx'
-import HomePage from './pages/homePage.jsx';
-import LoginPage from './pages/loginPage.jsx';
-// import RegisterPage from './pages/registerpage.jsx';
-import Footer from './components/footer.jsx'
-
 import React, { useState, useEffect } from 'react';
-import { authAPI } from './services/api';
-
-
-
-
+import HomePage from './pages/homePage.jsx'; // Adjust path if necessary
 
 const App = () => {
+  // 1. The master state that holds all rooms for the entire app
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // 2. Fetch the data ONE TIME when the app loads
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/rooms');
+        const data = await response.json();
+        
+        // Save the live data to our master state
+        setRooms(data); 
+      } catch (error) {
+        console.error("Failed to fetch rooms:", error);
+      } finally {
+        setLoading(false); // Turn off the loading screen
+      }
+    };
+
+    fetchRooms();
+  }, []); // Empty array ensures this only happens once
+
+  // 3. Show a loading screen while waiting for the backend
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-white">
+        <p className="text-zinc-500 font-rubik animate-pulse">Loading live campus data...</p>
+      </div>
+    );
+  }
+
+  // 4. Pass the fetched rooms down into HomePage!
   return (
-    <Router> {/* This MUST wrap everything */}
-      <main>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/netzwerk" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-        </Routes>
-      </main>
-    </Router>
+    <HomePage rooms={rooms} />
+  );
+};
 
-  )
-}
-
-export default App
+export default App;
