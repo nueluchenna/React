@@ -1,16 +1,23 @@
-# React + Vite
+# 🎓 THD Room Finder
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Welcome! Finding an empty study space on campus shouldn't be a guessing game. I built this simple application to help students instantly see which classrooms are currently free and which ones are occupied.
 
-Currently, two official plugins are available:
+## 🚀 Try It Out Live
+You do not need to download or install anything to use this app. Just click the link below to open it on your phone or laptop:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+**👉 [Click here to open the Room Finder](https://my-uni-room-finder.vercel.app/)**
 
-## React Compiler
+## 📖 How to Use It
+Using the app is incredibly easy:
+1. Open the link above.
+2. The app will automatically sync with the university's live schedule.
+3. Browse the list of rooms to see their current real-time status:
+   * 🟢 **Free:** The room is currently empty. The app will also tell you *how long* it stays free before the next class starts.
+   * 🔴 **Occupied:** A class or meeting is happening right now. The app will tell you what time it finishes.
+4. Check the seating capacity on the room card to make sure it's big enough for you or your study group.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 📱 Device Support
+This website is fully responsive. It works perfectly on your mobile phone while you are walking around campus, or on your laptop while you are sitting in the library.
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+*Created by Uchenna Emmanuel Thankgod-Ojali for students at the Deggendorf Institute of Technology.*
