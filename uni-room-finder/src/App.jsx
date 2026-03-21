@@ -10,7 +10,7 @@ const App = () => {
   useEffect(() => {
     const fetchRooms = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/rooms');
+        const response = await fetch('https://uni-room-backend.onrender.com/api/rooms');
         const data = await response.json();
         
         // Save the live data to our master state
