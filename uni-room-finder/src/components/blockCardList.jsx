@@ -10,7 +10,7 @@ const BlockCardList = ({ buildings, onBuildingSelect }) => {
             name={`${building.name} Building`}
             roomsFree={building.roomsFree}
             // dynamically grabs standard images like 'k-building.png'
-            image={`../../public/img/${building.name.toLowerCase()}-building.png`} 
+            image={`../../img/${building.name.toLowerCase()}-building.png`} 
           />
         </div>
       ))}
