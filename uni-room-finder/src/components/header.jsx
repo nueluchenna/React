@@ -16,26 +16,29 @@ const UserIcon = () => (
 
 const Header = ({ title = "Find a room" }) => {
   return (
-    // 'sticky top-0' keeps it visible when scrolling
-    // 'z-50' ensures it stays ON TOP of the cards
-    <div className="sticky top-0 z-50 w-full h-16 bg-fuchsia-50 px-4 flex items-center justify-between shadow-sm">
+    // 'sticky top-0 z-50' keeps the header pinned while you scroll through room cards
+    <header className="sticky top-0 z-50 w-full h-16 bg-fuchsia-50/80 backdrop-blur-md px-4 flex items-center justify-between border-b border-fuchsia-100">
       
-      {/* Left Icon Button */}
-      <button className="p-2 rounded-full hover:bg-black/5 transition-colors">
+      {/* Buttons now have 'active:scale-95' for a satisfying click feel */}
+      <button 
+        onClick={() => alert("Menu coming soon!")}
+        className="p-2 rounded-full hover:bg-fuchsia-100/50 active:scale-95 transition-all"
+      >
         <MenuIcon />
       </button>
 
-      {/* Center Title */}
-      <h1 className="text-zinc-900 text-xl font-medium font-Rubik tracking-tight">
+      <h1 className="text-zinc-900 text-lg font-bold font-Rubik tracking-tight">
         {title}
       </h1>
 
-      {/* Right Icon Button */}
-      <button className="p-2 rounded-full hover:bg-black/5 transition-colors">
+      <button 
+        onClick={() => alert("Profile coming soon!")}
+        className="p-2 rounded-full hover:bg-fuchsia-100/50 active:scale-95 transition-all"
+      >
         <UserIcon />
       </button>
       
-    </div>
+    </header>
   );
 };
 

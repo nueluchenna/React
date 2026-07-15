@@ -10,32 +10,32 @@ const UsersIcon = () => (
   </svg>
 );
 
-// Placeholder Icon (Square, Circle, Triangle)
-const ShapesIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor" className="text-gray-400 opacity-50">
-    <path d="M12 2L2 22h20L12 2z" /> {/* Triangle */}
-    <circle cx="18" cy="18" r="4" /> {/* Circle */}
-    <rect x="2" y="14" width="8" height="8" /> {/* Square */}
-  </svg>
-);
-
 const ClassCard = ({ roomNumber, capacity, status, timeInfo, image }) => {
   const isFree = status === 'free';
 
   return (
     <div className="flex w-full h-[88px] bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow cursor-pointer">
       
-      {/* Left: Image or Placeholder */}
-      <div className="w-[88px] h-full flex-shrink-0 bg-gray-100 flex items-center justify-center relative">
+      {/* Left: Image OR Smart Fallback */}
+      <div className="w-[88px] h-full flex-shrink-0 relative border-r border-gray-100">
         {image ? (
+          // If you have a photo, it fills the left box completely
           <img 
             src={image} 
             alt={roomNumber} 
             className="w-full h-full object-cover"
           />
         ) : (
-          /* Using the shapes icon to match your screenshot for E006 */
-          <ShapesIcon />
+          // If you don't have a photo yet, it safely falls back to the clean status emoji
+          <div 
+            className={`w-full h-full flex items-center justify-center text-3xl transition-colors ${
+              isFree 
+                ? 'bg-green-50 text-green-600' 
+                : 'bg-red-50 text-red-500'
+            }`}
+          >
+            {isFree ? '✓' : '🔒'}
+          </div>
         )}
       </div>
 
@@ -58,9 +58,10 @@ const ClassCard = ({ roomNumber, capacity, status, timeInfo, image }) => {
         {/* Footer: Status */}
         <div className="flex items-center gap-2">
           <div className={`w-2.5 h-2.5 rounded-full ${isFree ? 'bg-green-500' : 'bg-red-500'}`} />
-          <p className="text-gray-700 text-sm font-Rubik">
-            {isFree ? 'Free for ' : 'Occupied till '}
-            <span className="font-bold text-gray-900">{timeInfo}</span>
+          
+          {/* Render timeInfo directly without the hardcoded prefix */}
+          <p className="text-gray-900 font-medium text-sm font-Rubik">
+            {timeInfo}
           </p>
         </div>
       </div>
