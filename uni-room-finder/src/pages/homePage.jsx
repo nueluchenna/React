@@ -6,25 +6,34 @@ import Header from "../components/header.jsx";
 
 const ALLOWED_BUILDINGS = ["A", "B", "C", "D", "E", "I", "J", "K", "L"];
 
-// Building letter followed by at least 3 digits
-const ROOM_FORMAT_REGEX = /^[ABCDEIJKL]\d{3,}$/;
+// Your original STRICT bouncer rule for all normal buildings
+const STRICT_ROOM_REGEX = /^[ABCDEIJKL]\d{3,}$/;
 
 const HomePage = ({ rooms = [] }) => {
   const [selectedBuilding, setSelectedBuilding] = useState(null);
 
-  const isValidRoom = (roomNumber) => {
-    if (!roomNumber) return false;
+  const isValidRoom = (room) => {
+    if (!room || !room.roomNumber) return false;
 
-    const value = roomNumber.trim().toUpperCase();
+    const value = room.roomNumber.trim().toUpperCase();
 
-    return ROOM_FORMAT_REGEX.test(value);
+    // --- 1. VIP EXCEPTION FOR 'K' BUILDING ---
+    if (value.startsWith("K")) {
+      // Lenient check: Only accept these two exact rooms, even if they have "- EDV" attached
+      if (value.includes("K106/107") || value.includes("K210")) {
+        return true;
+      }
+      return false; // Reject every other K room (like K105, Vorplatz, etc.)
+    }
+
+    // --- 2. STRICT RULE FOR EVERY OTHER BUILDING ---
+    // Returns true ONLY if it perfectly matches the strict format (e.g., "A112")
+    return STRICT_ROOM_REGEX.test(value);
   };
 
   // Generate building cards and count free rooms
   const availableBuildings = useMemo(() => {
-    const validRooms = rooms.filter((room) =>
-      isValidRoom(room.roomNumber)
-    );
+    const validRooms = rooms.filter((room) => isValidRoom(room));
 
     const uniqueBuildings = [
       ...new Set(
@@ -59,7 +68,7 @@ const HomePage = ({ rooms = [] }) => {
     if (!selectedBuilding) return [];
 
     return rooms.filter((room) => {
-      if (!isValidRoom(room.roomNumber)) {
+      if (!isValidRoom(room)) {
         return false;
       }
 
