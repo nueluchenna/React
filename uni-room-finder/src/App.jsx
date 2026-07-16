@@ -36,7 +36,12 @@ const App = () => {
 
   // 4. Pass the fetched rooms down into HomePage!
   return (
+    <>
     <HomePage rooms={rooms} />
+    
+    // This invisible component tracks your traffic silently
+    <Analytics />
+    </>
   );
 };
 
