@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import HomePage from './pages/homePage.jsx'; // Adjust path if necessary
+import { Analytics } from '@vercel/analytics/react'; // 1. Import Vercel Analytics
 
 const App = () => {
   // 1. The master state that holds all rooms for the entire app
@@ -38,7 +39,7 @@ const App = () => {
   return (
     <>
     <HomePage rooms={rooms} />
-    
+
     // This invisible component tracks your traffic silently
     <Analytics />
     </>
