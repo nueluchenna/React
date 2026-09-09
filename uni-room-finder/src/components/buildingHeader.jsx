@@ -23,7 +23,7 @@ const BuildingHeader = ({ title, onBack }) => {
       </button>
 
       {/* Title (E Building, etc.) */}
-      <h1 className="flex-1 text-left px-2 text-zinc-900 text-xl font-medium font-rubik leading-7">
+      <h1 className="flex-1 text-left px-2 text-zinc-900 text-xl font-bold font-rubik leading-7">
         {title}
       </h1>
 

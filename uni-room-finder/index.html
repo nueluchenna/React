@@ -1,34 +1,27 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <!-- Links the manifest file -->
-    <link rel="manifest" href="/manifest.json" />
-
-    <!-- Makes the app look native on Apple iPhones -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="RoomFinder">
-    <link rel="apple-touch-icon" href="/icon-192.png">
-
-    <!-- Sets the color of the phone's top status bar -->
-    <meta name="theme-color" content="#34d399" />
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <!-- Links the manifest file -->
-    <link rel="manifest" href="/manifest.json" />
+    <title>uni-room-finder</title>
 
-    <!-- Makes the app look native on Apple iPhones -->
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    
+    <!-- PWA Links -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#34d399" />
+
+    <!-- Apple iOS Settings -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="RoomFinder">
     <link rel="apple-touch-icon" href="/icon-192.png">
 
-    <!-- Sets the color of the phone's top status bar -->
-    <meta name="theme-color" content="#34d399" />
-    <title>uni-room-finder</title>
+    <!-- Google Fonts: Rubik -->
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
-  <body>
+  
+  <body class="font-sans bg-slate-50 text-slate-800 antialiased selection:bg-emerald-200 selection:text-emerald-900">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
