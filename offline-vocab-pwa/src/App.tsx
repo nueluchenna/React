@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useAIWorker } from './hooks/useAIWorker';
 import { useFSRSDeck } from './hooks/useFSRSDeck';
 import { Header } from './components/layout/Header';
@@ -14,6 +14,7 @@ export function App() {
   const [activeView, setActiveView] = useState<'transcribe' | 'review'>('transcribe');
   const [isReviewingSession, setIsReviewingSession] = useState(false);
   const [manualSegments, setManualSegments] = useState<TranscriptSegment[]>([]);
+  const [interimSpeech, setInterimSpeech] = useState('');
 
   const {
     isModelsReady,
@@ -43,8 +44,8 @@ export function App() {
 
   const combinedSegments = [...transcriptSegments, ...manualSegments];
 
-  const handleManualSentenceSubmit = (text: string) => {
-    const chunkId = `manual-${Date.now()}`;
+  const appendSentenceSegment = useCallback((text: string, prefix = 'manual') => {
+    const chunkId = `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const sentences = (text.match(/[^.!?]+[.!?]+|[^.!?]+$/g) || [text])
       .map((s) => s.trim())
       .filter(Boolean)
@@ -54,15 +55,39 @@ export function App() {
         words: rawText.split(/\s+/).filter(Boolean)
       }));
 
-    setManualSegments((prev) => [
-      ...prev,
-      { chunkId, timestamp: Date.now(), sentences }
-    ]);
-  };
+    if (sentences.length > 0) {
+      setManualSegments((prev) => [
+        ...prev,
+        { chunkId, timestamp: Date.now(), sentences }
+      ]);
+    }
+  }, []);
+
+  const handleManualSentenceSubmit = useCallback(
+    (text: string) => {
+      appendSentenceSegment(text, 'manual');
+    },
+    [appendSentenceSegment]
+  );
+
+  const handleLiveSpeechResult = useCallback(
+    (text: string, isFinal: boolean) => {
+      if (isFinal) {
+        if (text.trim()) {
+          appendSentenceSegment(text.trim(), 'speech');
+        }
+        setInterimSpeech('');
+      } else {
+        setInterimSpeech(text);
+      }
+    },
+    [appendSentenceSegment]
+  );
 
   const handleClearAllTranscripts = () => {
     clearTranscript();
     setManualSegments([]);
+    setInterimSpeech('');
   };
 
   return (
@@ -93,6 +118,7 @@ export function App() {
             <LiveRecorderBar
               isModelsReady={isTranscriberReady || isModelsReady}
               onAudioChunk={sendAudioChunk}
+              onLiveSpeechResult={handleLiveSpeechResult}
               onManualSentenceSubmit={handleManualSentenceSubmit}
               onClearTranscript={handleClearAllTranscripts}
               hasTranscript={combinedSegments.length > 0}
@@ -100,6 +126,7 @@ export function App() {
 
             <InteractiveTranscript
               segments={combinedSegments}
+              interimText={interimSpeech}
               onWordSelect={(word, sentence) => requestClozeGeneration(word, sentence)}
             />
           </>

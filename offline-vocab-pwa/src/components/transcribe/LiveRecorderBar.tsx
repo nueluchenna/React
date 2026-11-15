@@ -1,10 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, Square, Trash2, PlusCircle } from 'lucide-react';
+import { Mic, Square, Trash2, PlusCircle, Radio } from 'lucide-react';
 import { ContinuousAudioRecorder } from '../../services/audioRecorder';
 
 interface LiveRecorderBarProps {
   isModelsReady: boolean;
   onAudioChunk: (pcmData: Float32Array) => void;
+  onLiveSpeechResult: (text: string, isFinal: boolean) => void;
   onManualSentenceSubmit: (text: string) => void;
   onClearTranscript: () => void;
   hasTranscript: boolean;
@@ -13,6 +14,7 @@ interface LiveRecorderBarProps {
 export const LiveRecorderBar: React.FC<LiveRecorderBarProps> = ({
   isModelsReady,
   onAudioChunk,
+  onLiveSpeechResult,
   onManualSentenceSubmit,
   onClearTranscript,
   hasTranscript
@@ -22,6 +24,12 @@ export const LiveRecorderBar: React.FC<LiveRecorderBarProps> = ({
   const [manualInput, setManualInput] = useState('');
   const [micError, setMicError] = useState<string | null>(null);
   const recorderRef = useRef<ContinuousAudioRecorder | null>(null);
+
+  const hasNativeSpeechSupport =
+    typeof window !== 'undefined' &&
+    Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+
+  const canStartRecording = isModelsReady || hasNativeSpeechSupport;
 
   useEffect(() => {
     return () => {
@@ -35,14 +43,16 @@ export const LiveRecorderBar: React.FC<LiveRecorderBarProps> = ({
       recorderRef.current?.stop();
       setIsRecording(false);
       setAudioLevel(0);
+      onLiveSpeechResult('', false);
     } else {
       try {
         const recorder = new ContinuousAudioRecorder(
           (chunk) => onAudioChunk(chunk),
-          (level) => setAudioLevel(level)
+          (level) => setAudioLevel(level),
+          (text, isFinal) => onLiveSpeechResult(text, isFinal)
         );
         recorderRef.current = recorder;
-        await recorder.start();
+        await recorder.start(true);
         setIsRecording(true);
       } catch (err: any) {
         setMicError(err?.message || 'Microphone access denied.');
@@ -64,7 +74,7 @@ export const LiveRecorderBar: React.FC<LiveRecorderBarProps> = ({
         <div className="flex items-center gap-3">
           <button
             onClick={toggleRecording}
-            disabled={!isModelsReady}
+            disabled={!canStartRecording}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm transition shadow ${
               isRecording
                 ? 'bg-rose-600 hover:bg-rose-500 text-white'
@@ -93,7 +103,10 @@ export const LiveRecorderBar: React.FC<LiveRecorderBarProps> = ({
                   style={{ width: `${Math.min(100, Math.round(audioLevel * 100))}%` }}
                 />
               </div>
-              <span className="text-xs text-emerald-400 font-mono">16kHz LIVE</span>
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-mono">
+                <Radio className="w-3.5 h-3.5 animate-pulse" />
+                LIVE DE
+              </span>
             </div>
           )}
         </div>

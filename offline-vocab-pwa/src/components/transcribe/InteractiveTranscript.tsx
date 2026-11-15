@@ -1,18 +1,20 @@
 import React from 'react';
 import { TranscriptSegment } from '../../types/flashcard';
-import { Volume2, Sparkles } from 'lucide-react';
+import { Volume2, Sparkles, Radio } from 'lucide-react';
 import { ttsService } from '../../services/ttsService';
 
 interface InteractiveTranscriptProps {
   segments: TranscriptSegment[];
+  interimText?: string;
   onWordSelect: (word: string, sentence: string) => void;
 }
 
 export const InteractiveTranscript: React.FC<InteractiveTranscriptProps> = ({
   segments,
+  interimText,
   onWordSelect
 }) => {
-  if (segments.length === 0) {
+  if (segments.length === 0 && !interimText) {
     return (
       <div className="bg-slate-900/50 border border-dashed border-slate-800 rounded-xl p-10 text-center space-y-2">
         <Sparkles className="w-8 h-8 text-slate-600 mx-auto" />
@@ -66,6 +68,14 @@ export const InteractiveTranscript: React.FC<InteractiveTranscriptProps> = ({
             ))}
           </div>
         ))}
+
+        {/* Live streaming interim speech preview */}
+        {interimText && (
+          <div className="flex items-center gap-2.5 p-2.5 rounded-lg bg-blue-950/30 border border-blue-800/50 text-blue-200 animate-pulse">
+            <Radio className="w-4 h-4 text-blue-400 shrink-0" />
+            <p className="text-sm italic">{interimText} ...</p>
+          </div>
+        )}
       </div>
     </div>
   );
