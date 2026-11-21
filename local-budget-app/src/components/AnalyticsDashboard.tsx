@@ -648,7 +648,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           <div className="rounded-xl bg-slate-900 text-white p-5 space-y-4">
             <div>
               <span className="text-[11px] font-medium text-emerald-400 uppercase tracking-wider">
-                {coachAdvice.source === 'gemini' ? 'Gemini Financial Coach' : 'Smart Coach'}
+                {coachAdvice.source === 'groq'
+                  ? 'Groq Financial Coach'
+                  : coachAdvice.source === 'gemini'
+                  ? 'Gemini Financial Coach'
+                  : 'Smart Coach'}
               </span>
               <h4 className="text-sm sm:text-base font-semibold text-white mt-1">
                 {coachAdvice.headline}

@@ -8,6 +8,8 @@ import {
 } from '../db/db';
 import { extractBase64Payload } from '../utils/imageCompression';
 
+export type AIProvider = 'groq' | 'gemini';
+
 export interface ExtractedReceiptData {
   merchant: string;
   date: string; // YYYY-MM-DD
@@ -17,7 +19,7 @@ export interface ExtractedReceiptData {
   category: SpendeeCategory;
   summaryNote: string;
   lineItems: LineItem[];
-  extractionEngine: 'gemini' | 'tesseract_fallback';
+  extractionEngine: 'gemini' | 'groq' | 'tesseract_fallback';
   fallbackReason?: string;
 }
 
@@ -29,7 +31,7 @@ export interface AICoachAdvice {
     estimatedMonthlySavings: string;
     action: string;
   }>;
-  source: 'gemini' | 'local_smart_coach';
+  source: 'gemini' | 'groq' | 'local_smart_coach';
 }
 
 function todayISO(): string {
@@ -110,6 +112,169 @@ export async function testGeminiApiKey(
       message: `${providerLabel} rejected the key: ${rawMsg}`,
     };
   }
+}
+
+/**
+ * Live Groq API Key verification helper for Settings
+ */
+export async function testGroqApiKey(
+  apiKey: string,
+  modelName = 'meta-llama/llama-4-scout-17b-16e-instruct'
+): Promise<{ ok: boolean; provider: string; message: string }> {
+  const trimmed = apiKey.trim();
+  if (!trimmed) {
+    return { ok: false, provider: 'Groq', message: 'Groq API key is empty.' };
+  }
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${trimmed}`,
+      },
+      body: JSON.stringify({
+        model: modelName || 'meta-llama/llama-4-scout-17b-16e-instruct',
+        messages: [{ role: 'user', content: 'Reply with OK' }],
+        max_tokens: 10,
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text();
+      return {
+        ok: false,
+        provider: 'Groq',
+        message: `Groq rejected the key (${res.status}): ${errBody.slice(0, 180)}`,
+      };
+    }
+
+    return {
+      ok: true,
+      provider: 'Groq',
+      message: `Connected successfully via Groq (${modelName}).`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      provider: 'Groq',
+      message: `Network error connecting to Groq: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
+/**
+ * Groq Vision Structured JSON Receipt Extraction
+ * Uses Llama 4 Scout / Maverick natively multimodal vision models via Groq OpenAI-compatible API.
+ */
+export async function parseReceiptWithGroq(
+  imageDataUrl: string,
+  apiKey: string,
+  modelName = 'meta-llama/llama-4-scout-17b-16e-instruct',
+  defaultCurrency = 'EUR'
+): Promise<ExtractedReceiptData> {
+  const today = todayISO();
+
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey.trim()}`,
+    },
+    body: JSON.stringify({
+      model: modelName || 'meta-llama/llama-4-scout-17b-16e-instruct',
+      temperature: 0.1,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content: `You are a precise receipt extraction engine. Return ONLY a valid JSON object matching this exact structure:
+{
+  "merchant": "Store or restaurant name",
+  "date": "YYYY-MM-DD (fallback to ${today} if illegible)",
+  "currency": "3-letter ISO code like EUR, USD, GBP (default ${defaultCurrency})",
+  "totalAmount": 0.00,
+  "taxAmount": 0.00,
+  "category": "One of: ${SPENDEE_CATEGORIES.join(', ')}",
+  "summaryNote": "Short 3-6 word summary of what was bought",
+  "lineItems": [
+    { "name": "Item name", "quantity": 1, "unitPrice": 0.00, "totalPrice": 0.00 }
+  ]
+}
+Handle European/German receipts (Lidl, Aldi, REWE, etc.) where commas are decimal separators (44,50 = 44.50) and total may be labeled SUMME, zu zahlen, Kartenzahlung, or TOTAL.`,
+        },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Extract all receipt fields and line items into the required JSON object.',
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: imageDataUrl,
+              },
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Groq API error (${res.status}): ${errText.slice(0, 180)}`);
+  }
+
+  const data = await res.json();
+  const content: string = data?.choices?.[0]?.message?.content || '{}';
+  const cleanedJson = content.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+  const parsed = JSON.parse(cleanedJson);
+
+  const lineItems: LineItem[] = Array.isArray(parsed.lineItems)
+    ? parsed.lineItems.map((it: Partial<LineItem>) => {
+        const qty = Number(it.quantity) > 0 ? Number(it.quantity) : 1;
+        const total = Number(it.totalPrice) || Number(it.unitPrice) || 0;
+        const unit = Number(it.unitPrice) || Number((total / qty).toFixed(2));
+        return {
+          name: String(it.name || 'Item').trim(),
+          quantity: qty,
+          unitPrice: unit,
+          totalPrice: total,
+        };
+      })
+    : [];
+
+  const computedTotalFromItems = lineItems.reduce((acc, item) => acc + item.totalPrice, 0);
+  const totalAmount =
+    Number(parsed.totalAmount) > 0
+      ? Number(parsed.totalAmount)
+      : Number(computedTotalFromItems.toFixed(2));
+
+  return {
+    merchant: String(parsed.merchant || 'Receipt Merchant').trim(),
+    date: sanitizeDateISO(parsed.date),
+    currency: String(parsed.currency || defaultCurrency)
+      .toUpperCase()
+      .slice(0, 3),
+    totalAmount,
+    taxAmount: Number(parsed.taxAmount) > 0 ? Number(parsed.taxAmount) : undefined,
+    category: normalizeCategory(parsed.category),
+    summaryNote: String(parsed.summaryNote || 'Receipt purchase').trim(),
+    lineItems:
+      lineItems.length > 0
+        ? lineItems
+        : [
+            {
+              name: String(parsed.merchant || 'Receipt Purchase'),
+              quantity: 1,
+              unitPrice: totalAmount,
+              totalPrice: totalAmount,
+            },
+          ],
+    extractionEngine: 'groq',
+  };
 }
 
 /**
@@ -527,27 +692,79 @@ export async function extractReceiptSmart(
     onProgress?: (progress: number) => void;
   }
 ): Promise<ExtractedReceiptData> {
-  const apiKey = await getSetting<string>('geminiApiKey', '');
-  const modelName = await getSetting<string>('geminiModel', 'gemini-2.5-flash');
+  const aiProvider = await getSetting<AIProvider>('aiProvider', 'gemini');
+  const groqApiKey = await getSetting<string>('groqApiKey', '');
+  const groqModel = await getSetting<string>(
+    'groqModel',
+    'meta-llama/llama-4-scout-17b-16e-instruct'
+  );
+  const geminiApiKey = await getSetting<string>('geminiApiKey', '');
+  const geminiModel = await getSetting<string>('geminiModel', 'gemini-2.5-flash');
   const defaultCurrency = await getSetting<string>('defaultCurrency', 'EUR');
 
-  if (!options?.forceLocalOCR && apiKey && apiKey.trim().length > 10) {
-    try {
-      return await parseReceiptWithGemini(
-        imageDataUrl,
-        apiKey.trim(),
-        modelName,
-        defaultCurrency
-      );
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : String(err);
-      console.warn('Gemini receipt extraction failed, falling back to local OCR:', reason);
-      return await parseReceiptWithLocalOCR(
-        imageDataUrl,
-        defaultCurrency,
-        options?.onProgress,
-        reason
-      );
+  if (!options?.forceLocalOCR) {
+    // Auto-route to Groq if Groq is selected OR if a gsk_ key is configured
+    const effectiveGroqKey =
+      groqApiKey.trim() || (geminiApiKey.trim().startsWith('gsk_') ? geminiApiKey.trim() : '');
+
+    if ((aiProvider === 'groq' || geminiApiKey.trim().startsWith('gsk_')) && effectiveGroqKey.length > 10) {
+      try {
+        return await parseReceiptWithGroq(
+          imageDataUrl,
+          effectiveGroqKey,
+          groqModel,
+          defaultCurrency
+        );
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        console.warn('Groq receipt extraction failed, falling back to local OCR:', reason);
+        return await parseReceiptWithLocalOCR(
+          imageDataUrl,
+          defaultCurrency,
+          options?.onProgress,
+          reason
+        );
+      }
+    }
+
+    if (geminiApiKey && geminiApiKey.trim().length > 10) {
+      try {
+        return await parseReceiptWithGemini(
+          imageDataUrl,
+          geminiApiKey.trim(),
+          geminiModel,
+          defaultCurrency
+        );
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        console.warn('Gemini receipt extraction failed, falling back to local OCR:', reason);
+        return await parseReceiptWithLocalOCR(
+          imageDataUrl,
+          defaultCurrency,
+          options?.onProgress,
+          reason
+        );
+      }
+    }
+
+    // Fallback: if user selected Gemini without a Gemini key, still try Groq if they saved one
+    if (effectiveGroqKey.length > 10) {
+      try {
+        return await parseReceiptWithGroq(
+          imageDataUrl,
+          effectiveGroqKey,
+          groqModel,
+          defaultCurrency
+        );
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        return await parseReceiptWithLocalOCR(
+          imageDataUrl,
+          defaultCurrency,
+          options?.onProgress,
+          reason
+        );
+      }
     }
   }
 
@@ -555,7 +772,7 @@ export async function extractReceiptSmart(
     imageDataUrl,
     defaultCurrency,
     options?.onProgress,
-    options?.forceLocalOCR ? undefined : 'No Gemini API key configured'
+    options?.forceLocalOCR ? undefined : 'No AI API key configured'
   );
 }
 
@@ -571,10 +788,66 @@ export async function generateAIFinancialCoachAdvice(summary: {
   topMerchants: Array<{ merchant: string; amount: number; count: number }>;
   weekendVsWeekdayRatio: number;
 }): Promise<AICoachAdvice> {
+  const aiProvider = await getSetting<AIProvider>('aiProvider', 'gemini');
+  const groqApiKey = await getSetting<string>('groqApiKey', '');
+  const groqModel = await getSetting<string>(
+    'groqModel',
+    'meta-llama/llama-4-scout-17b-16e-instruct'
+  );
   const apiKey = await getSetting<string>('geminiApiKey', '');
   const modelName = await getSetting<string>('geminiModel', 'gemini-2.5-flash');
 
-  if (apiKey && apiKey.trim().length > 10) {
+  const coachPrompt = `You are SpendeeAI's Deep Financial Coach. Analyze this user's anonymized spending summary for ${summary.periodLabel}:
+- Currency: ${summary.currency}
+- Total Spent: ${summary.totalSpent.toFixed(2)} (Monthly Budget Target: ${summary.monthlyBudget.toFixed(2)})
+- Weekend vs Weekday Daily Spend Ratio: ${summary.weekendVsWeekdayRatio.toFixed(2)}x
+- Category Breakdown: ${JSON.stringify(summary.categoryTotals)}
+- Top Merchants: ${JSON.stringify(summary.topMerchants)}
+
+Return a JSON object with:
+{
+  "headline": "A motivating, specific 1-sentence headline",
+  "habitBreakdown": ["3 bullet points with concrete numbers"],
+  "savingTips": [
+    { "title": "Short title", "estimatedMonthlySavings": "e.g. EUR 45/mo", "action": "Concrete tip" }
+  ]
+}
+Include exactly 3 savingTips.`;
+
+  if ((aiProvider === 'groq' || apiKey.trim().startsWith('gsk_')) && (groqApiKey.trim() || apiKey.trim()).length > 10) {
+    try {
+      const keyToUse = groqApiKey.trim() || apiKey.trim();
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${keyToUse}`,
+        },
+        body: JSON.stringify({
+          model: groqModel || 'meta-llama/llama-4-scout-17b-16e-instruct',
+          temperature: 0.3,
+          response_format: { type: 'json_object' },
+          messages: [{ role: 'user', content: coachPrompt }],
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const parsed = JSON.parse(data?.choices?.[0]?.message?.content || '{}');
+        if (parsed.headline && Array.isArray(parsed.savingTips)) {
+          return {
+            headline: parsed.headline,
+            habitBreakdown: parsed.habitBreakdown || [],
+            savingTips: parsed.savingTips.slice(0, 3),
+            source: 'groq',
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('Groq coach fallback:', err);
+    }
+  }
+
+  if (apiKey && apiKey.trim().length > 10 && !apiKey.trim().startsWith('gsk_')) {
     try {
       const { client } = createGeminiClient(apiKey);
       const responseSchema = {
@@ -601,21 +874,9 @@ export async function generateAIFinancialCoachAdvice(summary: {
         required: ['headline', 'habitBreakdown', 'savingTips'],
       };
 
-      const prompt = `You are SpendeeAI's Deep Financial Coach. Analyze this user's anonymized spending summary for ${summary.periodLabel}:
-- Currency: ${summary.currency}
-- Total Spent: ${summary.totalSpent.toFixed(2)} (Monthly Budget Target: ${summary.monthlyBudget.toFixed(2)})
-- Weekend vs Weekday Daily Spend Ratio: ${summary.weekendVsWeekdayRatio.toFixed(2)}x
-- Category Breakdown: ${JSON.stringify(summary.categoryTotals)}
-- Top Merchants: ${JSON.stringify(summary.topMerchants)}
-
-Provide:
-1. A motivating, specific 1-sentence headline.
-2. 3 bullet points breaking down their spending habits with concrete numbers.
-3. Exactly 3 concrete, actionable ways to save money next month with estimated monthly savings in ${summary.currency}.`;
-
       const response = await client.models.generateContent({
         model: modelName || 'gemini-2.5-flash',
-        contents: prompt,
+        contents: coachPrompt,
         config: {
           responseMimeType: 'application/json',
           responseSchema,

@@ -30,7 +30,11 @@ import {
   importFullBackupJSON,
 } from '../utils/exportData';
 import { availableSyncAdapters } from '../services/syncAdapter';
-import { testGeminiApiKey } from '../services/aiReceiptParser';
+import {
+  testGeminiApiKey,
+  testGroqApiKey,
+  type AIProvider,
+} from '../services/aiReceiptParser';
 
 interface SettingsViewProps {
   transactions: Transaction[];
@@ -51,6 +55,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onLoadDemoData,
   onShowToast,
 }) => {
+  const [provider, setProvider] = useState<AIProvider>('groq');
+  const [groqApiKey, setGroqApiKey] = useState('');
+  const [groqModel, setGroqModel] = useState('meta-llama/llama-4-scout-17b-16e-instruct');
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gemini-2.5-flash');
   const [selectedCurrency, setSelectedCurrency] = useState(currency);
@@ -69,9 +76,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   useEffect(() => {
     void (async () => {
-      const k = await getSetting<string>('geminiApiKey', '');
-      const m = await getSetting<string>('geminiModel', 'gemini-2.5-flash');
-      const backupTs = await getSetting<string | null>('lastBackupAt', null);
+      const [p, gk, gm, k, m, backupTs] = await Promise.all([
+        getSetting<AIProvider>('aiProvider', 'groq'),
+        getSetting<string>('groqApiKey', ''),
+        getSetting<string>('groqModel', 'meta-llama/llama-4-scout-17b-16e-instruct'),
+        getSetting<string>('geminiApiKey', ''),
+        getSetting<string>('geminiModel', 'gemini-2.5-flash'),
+        getSetting<string | null>('lastBackupAt', null),
+      ]);
+      setProvider(p);
+      setGroqApiKey(gk);
+      setGroqModel(gm);
       setApiKey(k);
       setModel(m);
       setLastBackupAt(backupTs);
@@ -97,21 +112,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleSaveAISettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    await setSetting('aiProvider', provider);
+    await setSetting('groqApiKey', groqApiKey.trim());
+    await setSetting('groqModel', groqModel);
     await setSetting('geminiApiKey', apiKey.trim());
     await setSetting('geminiModel', model);
     setKeyTestResult(null);
     onSettingsChanged();
-    onShowToast('AI settings saved locally.');
+    onShowToast(`${provider === 'groq' ? 'Groq Vision' : 'Gemini'} settings saved locally.`);
   };
 
   const handleTestApiKey = async () => {
     setTestingKey(true);
     setKeyTestResult(null);
     try {
+      await setSetting('aiProvider', provider);
+      await setSetting('groqApiKey', groqApiKey.trim());
+      await setSetting('groqModel', groqModel);
       await setSetting('geminiApiKey', apiKey.trim());
       await setSetting('geminiModel', model);
       onSettingsChanged();
-      const res = await testGeminiApiKey(apiKey.trim(), model);
+
+      const res =
+        provider === 'groq'
+          ? await testGroqApiKey(groqApiKey.trim(), groqModel)
+          : await testGeminiApiKey(apiKey.trim(), model);
       setKeyTestResult({ ok: res.ok, message: res.message });
     } finally {
       setTestingKey(false);
@@ -200,13 +225,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const detectedKeyType = apiKey.trim().startsWith('AQ.')
-    ? 'Vertex AI Express (AQ...)'
-    : apiKey.trim().startsWith('AIza')
-    ? 'Google AI Studio (AIza...)'
-    : apiKey.trim().length > 10
-    ? 'Custom Key'
-    : 'Local OCR Only';
+  const activeKeyValue = provider === 'groq' ? groqApiKey : apiKey;
+  const detectedKeyType =
+    provider === 'groq'
+      ? groqApiKey.trim().length > 10
+        ? 'Groq Vision Active'
+        : 'Groq (No Key)'
+      : apiKey.trim().startsWith('AQ.')
+      ? 'Vertex AI Express (AQ...)'
+      : apiKey.trim().startsWith('AIza')
+      ? 'Google AI Studio (AIza...)'
+      : apiKey.trim().length > 10
+      ? 'Custom Key'
+      : 'Local OCR Only';
 
   return (
     <div className="space-y-5 pb-24 max-w-3xl mx-auto">
@@ -215,15 +246,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         onSubmit={handleSaveAISettings}
         className="bg-white rounded-2xl p-5 border border-slate-200/80 space-y-4"
       >
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2.5">
             <KeyRound className="w-4 h-4 text-slate-500" />
             <div>
               <h3 className="font-semibold text-slate-900 text-sm">
-                Gemini AI Extraction
+                AI Receipt Extraction Provider
               </h3>
               <p className="text-xs text-slate-500">
-                Supports Google AI Studio (`AIza...`) and Vertex AI Express (`AQ...`) keys
+                Choose Groq (free Llama 4 Vision) or Google Gemini
               </p>
             </div>
           </div>
@@ -232,38 +263,115 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="sm:col-span-2">
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              API Key (stored locally on this device only)
-            </label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => {
-                setApiKey(e.target.value);
-                setKeyTestResult(null);
-              }}
-              placeholder="AIzaSy... or AQ.Ab8..."
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-600"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
-              <Cpu className="w-3.5 h-3.5 text-slate-400" />
-              <span>Model</span>
-            </label>
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:border-emerald-600"
-            >
-              <option value="gemini-2.5-flash">gemini-2.5-flash</option>
-              <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
-            </select>
-          </div>
+        {/* Provider Toggle */}
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => {
+              setProvider('groq');
+              setKeyTestResult(null);
+            }}
+            className={`px-3.5 py-1.5 rounded-lg transition cursor-pointer ${
+              provider === 'groq'
+                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            Groq Vision (Free Tier)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setProvider('gemini');
+              setKeyTestResult(null);
+            }}
+            className={`px-3.5 py-1.5 rounded-lg transition cursor-pointer ${
+              provider === 'gemini'
+                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            Google Gemini
+          </button>
         </div>
+
+        {provider === 'groq' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Groq API Key (stored locally on this device only)
+              </label>
+              <input
+                type="password"
+                value={groqApiKey}
+                onChange={(e) => {
+                  setGroqApiKey(e.target.value);
+                  setKeyTestResult(null);
+                }}
+                placeholder="gsk_..."
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                <Cpu className="w-3.5 h-3.5 text-slate-400" />
+                <span>Groq Vision Model</span>
+              </label>
+              <select
+                value={groqModel}
+                onChange={(e) => setGroqModel(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:border-emerald-600"
+              >
+                <option value="meta-llama/llama-4-scout-17b-16e-instruct">
+                  Llama 4 Scout 17B (Recommended)
+                </option>
+                <option value="meta-llama/llama-4-maverick-17b-128e-instruct">
+                  Llama 4 Maverick 17B
+                </option>
+              </select>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                Gemini API Key (AIza... from AI Studio or AQ... from Vertex)
+              </label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val.trim().startsWith('gsk_')) {
+                    setGroqApiKey(val);
+                    setProvider('groq');
+                  } else {
+                    setApiKey(val);
+                  }
+                  setKeyTestResult(null);
+                }}
+                placeholder="AIzaSy... or AQ.Ab8..."
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
+                <Cpu className="w-3.5 h-3.5 text-slate-400" />
+                <span>Gemini Model</span>
+              </label>
+              <select
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:border-emerald-600"
+              >
+                <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
+              </select>
+            </div>
+          </div>
+        )}
 
         {keyTestResult && (
           <div
@@ -285,7 +393,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
           <button
             type="button"
-            disabled={testingKey || !apiKey.trim()}
+            disabled={testingKey || !activeKeyValue.trim()}
             onClick={handleTestApiKey}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 font-medium text-xs transition cursor-pointer"
           >

@@ -270,8 +270,11 @@ db.version(1).stores({
 
 // LocalStorage + IndexedDB settings helpers
 export const LS_KEYS = {
+  AI_PROVIDER: 'spendeeai_ai_provider',
   GEMINI_API_KEY: 'spendeeai_gemini_api_key',
   GEMINI_MODEL: 'spendeeai_gemini_model',
+  GROQ_API_KEY: 'spendeeai_groq_api_key',
+  GROQ_MODEL: 'spendeeai_groq_model',
   DEFAULT_CURRENCY: 'spendeeai_default_currency',
   MONTHLY_BUDGET: 'spendeeai_monthly_budget',
 };
@@ -285,12 +288,15 @@ export async function getSetting<T>(key: string, defaultValue: T): Promise<T> {
   } catch {
     // ignore
   }
-  if (key === 'geminiApiKey') {
-    const ls = localStorage.getItem(LS_KEYS.GEMINI_API_KEY);
-    if (ls) return ls as unknown as T;
-  }
-  if (key === 'geminiModel') {
-    const ls = localStorage.getItem(LS_KEYS.GEMINI_MODEL);
+  const lsMap: Record<string, string> = {
+    aiProvider: LS_KEYS.AI_PROVIDER,
+    geminiApiKey: LS_KEYS.GEMINI_API_KEY,
+    geminiModel: LS_KEYS.GEMINI_MODEL,
+    groqApiKey: LS_KEYS.GROQ_API_KEY,
+    groqModel: LS_KEYS.GROQ_MODEL,
+  };
+  if (lsMap[key]) {
+    const ls = localStorage.getItem(lsMap[key]);
     if (ls) return ls as unknown as T;
   }
   return defaultValue;
@@ -298,15 +304,19 @@ export async function getSetting<T>(key: string, defaultValue: T): Promise<T> {
 
 export async function setSetting<T>(key: string, value: T): Promise<void> {
   await db.settings.put({ key, value });
-  if (key === 'geminiApiKey') {
+  const lsMap: Record<string, string> = {
+    aiProvider: LS_KEYS.AI_PROVIDER,
+    geminiApiKey: LS_KEYS.GEMINI_API_KEY,
+    geminiModel: LS_KEYS.GEMINI_MODEL,
+    groqApiKey: LS_KEYS.GROQ_API_KEY,
+    groqModel: LS_KEYS.GROQ_MODEL,
+  };
+  if (lsMap[key]) {
     if (value) {
-      localStorage.setItem(LS_KEYS.GEMINI_API_KEY, String(value));
+      localStorage.setItem(lsMap[key], String(value));
     } else {
-      localStorage.removeItem(LS_KEYS.GEMINI_API_KEY);
+      localStorage.removeItem(lsMap[key]);
     }
-  }
-  if (key === 'geminiModel' && value) {
-    localStorage.setItem(LS_KEYS.GEMINI_MODEL, String(value));
   }
 }
 

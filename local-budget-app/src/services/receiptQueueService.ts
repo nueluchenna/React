@@ -158,7 +158,11 @@ export async function processSinglePendingReceipt(
     );
 
     const engineTag =
-      extracted.extractionEngine === 'gemini' ? 'Gemini AI' : 'Local OCR';
+      extracted.extractionEngine === 'groq'
+        ? 'Groq Vision'
+        : extracted.extractionEngine === 'gemini'
+        ? 'Gemini AI'
+        : 'Local OCR';
 
     const newTx: Transaction = {
       id: crypto.randomUUID(),
@@ -194,7 +198,7 @@ export async function processSinglePendingReceipt(
         transactionId: newTx.id,
         message: `Used Local OCR (${newTx.merchant} ${newTx.currency} ${newTx.amount.toFixed(
           2
-        )}). Gemini error: ${extracted.fallbackReason.slice(0, 90)}`,
+        )}). AI error: ${extracted.fallbackReason.slice(0, 90)}`,
       });
     } else {
       emitNotification({
