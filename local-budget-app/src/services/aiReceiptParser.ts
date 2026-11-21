@@ -114,17 +114,73 @@ export async function testGeminiApiKey(
   }
 }
 
+export const DEFAULT_GROQ_MODEL = 'openai/gpt-oss-120b';
+
+/**
+ * Fetches live active chat/vision models directly from the user's Groq account
+ * so the model dropdown never gets stuck on deprecated IDs.
+ */
+export async function fetchGroqModels(apiKey: string): Promise<string[]> {
+  const trimmed = apiKey.trim();
+  if (!trimmed) return [];
+
+  const res = await fetch('https://api.groq.com/openai/v1/models', {
+    headers: {
+      Authorization: `Bearer ${trimmed}`,
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Failed to list Groq models (${res.status})`);
+  }
+
+  const data = (await res.json()) as {
+    data?: Array<{ id: string; active?: boolean }>;
+  };
+
+  const models = (data.data || [])
+    .filter((m) => m.active !== false)
+    .map((m) => m.id)
+    .filter(
+      (id) =>
+        !/whisper|tts|guard|prompt-guard|orpheus|playai|distil-whisper/i.test(id)
+    )
+    .sort((a, b) => {
+      // Prioritize gpt-oss and llama-4 vision models at top
+      const score = (s: string) =>
+        s === 'openai/gpt-oss-120b'
+          ? 0
+          : s.includes('gpt-oss')
+          ? 1
+          : s.includes('vision') || s.includes('scout')
+          ? 2
+          : 3;
+      return score(a) - score(b) || a.localeCompare(b);
+    });
+
+  return models;
+}
+
 /**
  * Live Groq API Key verification helper for Settings
  */
 export async function testGroqApiKey(
   apiKey: string,
-  modelName = 'meta-llama/llama-4-scout-17b-16e-instruct'
-): Promise<{ ok: boolean; provider: string; message: string }> {
+  modelName = DEFAULT_GROQ_MODEL
+): Promise<{ ok: boolean; provider: string; message: string; availableModels?: string[] }> {
   const trimmed = apiKey.trim();
   if (!trimmed) {
     return { ok: false, provider: 'Groq', message: 'Groq API key is empty.' };
   }
+
+  let availableModels: string[] = [];
+  try {
+    availableModels = await fetchGroqModels(trimmed);
+  } catch {
+    // Continue to chat completion test to get exact error
+  }
+
+  const targetModel = (modelName || DEFAULT_GROQ_MODEL).trim();
 
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -134,7 +190,7 @@ export async function testGroqApiKey(
         Authorization: `Bearer ${trimmed}`,
       },
       body: JSON.stringify({
-        model: modelName || 'meta-llama/llama-4-scout-17b-16e-instruct',
+        model: targetModel,
         messages: [{ role: 'user', content: 'Reply with OK' }],
         max_tokens: 10,
       }),
@@ -142,53 +198,57 @@ export async function testGroqApiKey(
 
     if (!res.ok) {
       const errBody = await res.text();
+      const hint =
+        availableModels.length > 0
+          ? ` Active models on your key: ${availableModels.slice(0, 5).join(', ')}.`
+          : '';
       return {
         ok: false,
         provider: 'Groq',
-        message: `Groq rejected the key (${res.status}): ${errBody.slice(0, 180)}`,
+        availableModels,
+        message: `Groq rejected "${targetModel}" (${res.status}): ${errBody.slice(0, 140)}${hint}`,
       };
     }
 
     return {
       ok: true,
       provider: 'Groq',
-      message: `Connected successfully via Groq (${modelName}).`,
+      availableModels,
+      message: `Connected successfully via Groq (${targetModel}).${
+        availableModels.length > 0 ? ` Loaded ${availableModels.length} live models.` : ''
+      }`,
     };
   } catch (err) {
     return {
       ok: false,
       provider: 'Groq',
+      availableModels,
       message: `Network error connecting to Groq: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
 }
 
+function isLikelyVisionModel(modelName: string): boolean {
+  return /vision|scout|maverick|llava|pixtral|vl|4o|gemini/i.test(modelName);
+}
+
 /**
- * Groq Vision Structured JSON Receipt Extraction
- * Uses Llama 4 Scout / Maverick natively multimodal vision models via Groq OpenAI-compatible API.
+ * Groq Structured JSON Receipt Extraction
+ * - For multimodal vision models: sends the compressed receipt image directly.
+ * - For text-only fast models (like openai/gpt-oss-120b) or if vision is unsupported:
+ *   extracts raw text via in-browser Tesseract.js and lets Groq LLM parse messy European/Lidl OCR text into strict JSON.
  */
 export async function parseReceiptWithGroq(
   imageDataUrl: string,
   apiKey: string,
-  modelName = 'meta-llama/llama-4-scout-17b-16e-instruct',
-  defaultCurrency = 'EUR'
+  modelName = DEFAULT_GROQ_MODEL,
+  defaultCurrency = 'EUR',
+  onProgress?: (progress: number) => void
 ): Promise<ExtractedReceiptData> {
   const today = todayISO();
+  const targetModel = (modelName || DEFAULT_GROQ_MODEL).trim();
 
-  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey.trim()}`,
-    },
-    body: JSON.stringify({
-      model: modelName || 'meta-llama/llama-4-scout-17b-16e-instruct',
-      temperature: 0.1,
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content: `You are a precise receipt extraction engine. Return ONLY a valid JSON object matching this exact structure:
+  const systemPrompt = `You are a precise receipt extraction engine. Return ONLY a valid JSON object matching this exact structure:
 {
   "merchant": "Store or restaurant name",
   "date": "YYYY-MM-DD (fallback to ${today} if illegible)",
@@ -201,30 +261,79 @@ export async function parseReceiptWithGroq(
     { "name": "Item name", "quantity": 1, "unitPrice": 0.00, "totalPrice": 0.00 }
   ]
 }
-Handle European/German receipts (Lidl, Aldi, REWE, etc.) where commas are decimal separators (44,50 = 44.50) and total may be labeled SUMME, zu zahlen, Kartenzahlung, or TOTAL.`,
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Extract all receipt fields and line items into the required JSON object.',
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: imageDataUrl,
-              },
-            },
-          ],
-        },
-      ],
-    }),
-  });
+Handle European/German receipts (Lidl, Aldi, REWE, etc.) where commas are decimal separators (44,50 = 44.50) and total may be labeled SUMME, zu zahlen, Kartenzahlung, or TOTAL. Fix minor OCR spelling mistakes in item names.`;
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Groq API error (${res.status}): ${errText.slice(0, 180)}`);
+  const callGroqWithMessages = async (messages: unknown[]) => {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey.trim()}`,
+      },
+      body: JSON.stringify({
+        model: targetModel,
+        temperature: 0.1,
+        response_format: { type: 'json_object' },
+        messages,
+      }),
+    });
+    return res;
+  };
+
+  let res: Response | null = null;
+
+  // 1. Try direct multimodal image input if the selected model is a vision model
+  if (isLikelyVisionModel(targetModel)) {
+    const visionRes = await callGroqWithMessages([
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: 'Extract all receipt fields and line items into the required JSON object.',
+          },
+          {
+            type: 'image_url',
+            image_url: { url: imageDataUrl },
+          },
+        ],
+      },
+    ]);
+
+    if (visionRes.ok) {
+      res = visionRes;
+    } else if (visionRes.status !== 400) {
+      const errText = await visionRes.text();
+      throw new Error(`Groq API error (${visionRes.status}): ${errText.slice(0, 180)}`);
+    }
+    // If 400 (model doesn't support image_url), fall through to OCR -> Groq LLM below!
+  }
+
+  // 2. OCR -> Groq Structured JSON (works with openai/gpt-oss-120b, openai/gpt-oss-20b, qwen, etc.)
+  if (!res) {
+    const Tesseract = await import('tesseract.js');
+    const ocrResult = await Tesseract.recognize(imageDataUrl, 'eng', {
+      logger: (m) => {
+        if (m.status === 'recognizing text' && typeof m.progress === 'number' && onProgress) {
+          onProgress(Math.round(m.progress * 100));
+        }
+      },
+    });
+    const rawOcrText = ocrResult.data.text || '';
+
+    res = await callGroqWithMessages([
+      { role: 'system', content: systemPrompt },
+      {
+        role: 'user',
+        content: `Extract all receipt fields and line items from this raw receipt OCR text into the required JSON object:\n\n${rawOcrText}`,
+      },
+    ]);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Groq API error (${res.status}): ${errText.slice(0, 180)}`);
+    }
   }
 
   const data = await res.json();
@@ -694,10 +803,7 @@ export async function extractReceiptSmart(
 ): Promise<ExtractedReceiptData> {
   const aiProvider = await getSetting<AIProvider>('aiProvider', 'gemini');
   const groqApiKey = await getSetting<string>('groqApiKey', '');
-  const groqModel = await getSetting<string>(
-    'groqModel',
-    'meta-llama/llama-4-scout-17b-16e-instruct'
-  );
+  const groqModel = await getSetting<string>('groqModel', DEFAULT_GROQ_MODEL);
   const geminiApiKey = await getSetting<string>('geminiApiKey', '');
   const geminiModel = await getSetting<string>('geminiModel', 'gemini-2.5-flash');
   const defaultCurrency = await getSetting<string>('defaultCurrency', 'EUR');
@@ -713,7 +819,8 @@ export async function extractReceiptSmart(
           imageDataUrl,
           effectiveGroqKey,
           groqModel,
-          defaultCurrency
+          defaultCurrency,
+          options?.onProgress
         );
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
@@ -754,7 +861,8 @@ export async function extractReceiptSmart(
           imageDataUrl,
           effectiveGroqKey,
           groqModel,
-          defaultCurrency
+          defaultCurrency,
+          options?.onProgress
         );
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
@@ -790,10 +898,7 @@ export async function generateAIFinancialCoachAdvice(summary: {
 }): Promise<AICoachAdvice> {
   const aiProvider = await getSetting<AIProvider>('aiProvider', 'gemini');
   const groqApiKey = await getSetting<string>('groqApiKey', '');
-  const groqModel = await getSetting<string>(
-    'groqModel',
-    'meta-llama/llama-4-scout-17b-16e-instruct'
-  );
+  const groqModel = await getSetting<string>('groqModel', DEFAULT_GROQ_MODEL);
   const apiKey = await getSetting<string>('geminiApiKey', '');
   const modelName = await getSetting<string>('geminiModel', 'gemini-2.5-flash');
 
@@ -824,7 +929,7 @@ Include exactly 3 savingTips.`;
           Authorization: `Bearer ${keyToUse}`,
         },
         body: JSON.stringify({
-          model: groqModel || 'meta-llama/llama-4-scout-17b-16e-instruct',
+          model: groqModel || DEFAULT_GROQ_MODEL,
           temperature: 0.3,
           response_format: { type: 'json_object' },
           messages: [{ role: 'user', content: coachPrompt }],

@@ -31,6 +31,8 @@ import {
 } from '../utils/exportData';
 import { availableSyncAdapters } from '../services/syncAdapter';
 import {
+  DEFAULT_GROQ_MODEL,
+  fetchGroqModels,
   testGeminiApiKey,
   testGroqApiKey,
   type AIProvider,
@@ -57,7 +59,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const [provider, setProvider] = useState<AIProvider>('groq');
   const [groqApiKey, setGroqApiKey] = useState('');
-  const [groqModel, setGroqModel] = useState('meta-llama/llama-4-scout-17b-16e-instruct');
+  const [groqModel, setGroqModel] = useState(DEFAULT_GROQ_MODEL);
+  const [liveGroqModels, setLiveGroqModels] = useState<string[]>([
+    'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b',
+    'qwen/qwen3.8-27b',
+  ]);
+  const [loadingGroqModels, setLoadingGroqModels] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState('gemini-2.5-flash');
   const [selectedCurrency, setSelectedCurrency] = useState(currency);
@@ -79,14 +87,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const [p, gk, gm, k, m, backupTs] = await Promise.all([
         getSetting<AIProvider>('aiProvider', 'groq'),
         getSetting<string>('groqApiKey', ''),
-        getSetting<string>('groqModel', 'meta-llama/llama-4-scout-17b-16e-instruct'),
+        getSetting<string>('groqModel', DEFAULT_GROQ_MODEL),
         getSetting<string>('geminiApiKey', ''),
         getSetting<string>('geminiModel', 'gemini-2.5-flash'),
         getSetting<string | null>('lastBackupAt', null),
       ]);
+      // Auto-migrate retired Llama 4 IDs to active Groq default
+      const migratedGroqModel =
+        gm === 'meta-llama/llama-4-maverick-17b-128e-instruct' ||
+        gm === 'meta-llama/llama-4-scout-17b-16e-instruct'
+          ? DEFAULT_GROQ_MODEL
+          : gm;
+
       setProvider(p);
       setGroqApiKey(gk);
-      setGroqModel(gm);
+      setGroqModel(migratedGroqModel);
+      if (migratedGroqModel !== gm) {
+        await setSetting('groqModel', migratedGroqModel);
+      }
       setApiKey(k);
       setModel(m);
       setLastBackupAt(backupTs);
@@ -122,22 +140,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     onShowToast(`${provider === 'groq' ? 'Groq Vision' : 'Gemini'} settings saved locally.`);
   };
 
+  const handleRefreshGroqModels = async () => {
+    if (!groqApiKey.trim()) return;
+    setLoadingGroqModels(true);
+    try {
+      const models = await fetchGroqModels(groqApiKey.trim());
+      if (models.length > 0) {
+        setLiveGroqModels(models);
+        if (!models.includes(groqModel)) {
+          setGroqModel(models[0]);
+        }
+        onShowToast(`Loaded ${models.length} active Groq models from your account.`);
+      }
+    } catch (err) {
+      onShowToast(
+        err instanceof Error ? err.message : 'Could not fetch live Groq models.'
+      );
+    } finally {
+      setLoadingGroqModels(false);
+    }
+  };
+
   const handleTestApiKey = async () => {
     setTestingKey(true);
     setKeyTestResult(null);
     try {
       await setSetting('aiProvider', provider);
       await setSetting('groqApiKey', groqApiKey.trim());
-      await setSetting('groqModel', groqModel);
+      await setSetting('groqModel', groqModel.trim());
       await setSetting('geminiApiKey', apiKey.trim());
       await setSetting('geminiModel', model);
       onSettingsChanged();
 
-      const res =
-        provider === 'groq'
-          ? await testGroqApiKey(groqApiKey.trim(), groqModel)
-          : await testGeminiApiKey(apiKey.trim(), model);
-      setKeyTestResult({ ok: res.ok, message: res.message });
+      if (provider === 'groq') {
+        const res = await testGroqApiKey(groqApiKey.trim(), groqModel.trim());
+        if (res.availableModels && res.availableModels.length > 0) {
+          setLiveGroqModels(res.availableModels);
+        }
+        setKeyTestResult({ ok: res.ok, message: res.message });
+      } else {
+        const res = await testGeminiApiKey(apiKey.trim(), model);
+        setKeyTestResult({ ok: res.ok, message: res.message });
+      }
     } finally {
       setTestingKey(false);
     }
@@ -314,21 +358,33 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
-                <Cpu className="w-3.5 h-3.5 text-slate-400" />
-                <span>Groq Vision Model</span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-slate-600 flex items-center gap-1">
+                  <Cpu className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Groq Model</span>
+                </label>
+                <button
+                  type="button"
+                  disabled={loadingGroqModels || !groqApiKey.trim()}
+                  onClick={handleRefreshGroqModels}
+                  className="text-[11px] font-medium text-emerald-700 hover:underline disabled:opacity-40 cursor-pointer"
+                >
+                  {loadingGroqModels ? 'Loading...' : 'Load Live Models'}
+                </button>
+              </div>
               <select
-                value={groqModel}
-                onChange={(e) => setGroqModel(e.target.value)}
+                value={liveGroqModels.includes(groqModel) ? groqModel : liveGroqModels[0]}
+                onChange={(e) => {
+                  setGroqModel(e.target.value);
+                  setKeyTestResult(null);
+                }}
                 className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:border-emerald-600"
               >
-                <option value="meta-llama/llama-4-scout-17b-16e-instruct">
-                  Llama 4 Scout 17B (Recommended)
-                </option>
-                <option value="meta-llama/llama-4-maverick-17b-128e-instruct">
-                  Llama 4 Maverick 17B
-                </option>
+                {liveGroqModels.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
