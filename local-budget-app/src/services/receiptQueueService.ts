@@ -4,18 +4,20 @@ import { extractReceiptSmart } from './aiReceiptParser';
 
 export interface QueueSyncNotification {
   id: string;
-  type: 'queued' | 'synced' | 'error';
+  type: 'queued' | 'synced' | 'error' | 'warning';
   message: string;
   merchant?: string;
   amount?: number;
   currency?: string;
   transactionId?: string;
+  undoTransaction?: Transaction;
 }
 
 type NotificationListener = (notif: QueueSyncNotification) => void;
 
 const listeners = new Set<NotificationListener>();
 let isDrainingQueue = false;
+const activeProcessingIds = new Set<string>();
 
 export function subscribeQueueNotifications(fn: NotificationListener): () => void {
   listeners.add(fn);
@@ -34,6 +36,23 @@ function emitNotification(notif: QueueSyncNotification) {
   }
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${Math.round(ms / 1000)}s`));
+    }, ms);
+    promise
+      .then((val) => {
+        clearTimeout(timer);
+        resolve(val);
+      })
+      .catch((err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
 /**
  * Checks whether the app should behave as offline:
  * true if browser is offline OR user enabled "Simulate Offline Mode" in header.
@@ -44,10 +63,25 @@ export async function isEffectivelyOffline(): Promise<boolean> {
 }
 
 /**
- * Ingests one or more receipt images (from file upload, camera snap, or clipboard paste).
- * Compresses each image to max 1200px @ 0.75 JPEG quality.
- * If offline (or Simulate Offline is active), queues in db.pendingReceipts.
- * If online, processes immediately through AI/OCR extraction and saves to db.transactions.
+ * Recovers any receipts stuck in 'processing' from a refreshed/interrupted session.
+ */
+export async function recoverStuckReceipts(): Promise<number> {
+  const all = await db.pendingReceipts.toArray();
+  let recovered = 0;
+  for (const item of all) {
+    if (item.status === 'processing' && !activeProcessingIds.has(item.id)) {
+      await db.pendingReceipts.update(item.id, {
+        status: 'queued',
+        errorMessage: 'Reset from an interrupted extraction session.',
+      });
+      recovered += 1;
+    }
+  }
+  return recovered;
+}
+
+/**
+ * Ingests one or more receipt images (from camera, file upload, or clipboard paste).
  */
 export async function ingestReceiptFiles(
   files: File[] | Blob[],
@@ -57,7 +91,7 @@ export async function ingestReceiptFiles(
   let processed = 0;
 
   for (const file of files) {
-    const compressedDataUrl = await compressImageToDataUrl(file, 1200, 0.75);
+    const compressedDataUrl = await compressImageToDataUrl(file, 1200, 0.78);
     const offline = await isEffectivelyOffline();
 
     if (offline) {
@@ -67,16 +101,15 @@ export async function ingestReceiptFiles(
         imageDataUrl: compressedDataUrl,
         createdAt: Date.now(),
         status: 'queued',
-        fileName: file instanceof File ? file.name : 'Pasted Screenshot',
+        fileName: file instanceof File ? file.name : 'Captured Receipt',
       });
       queued += 1;
       emitNotification({
         id: crypto.randomUUID(),
         type: 'queued',
-        message: 'Offline mode active: Receipt compressed & saved to Offline Queue.',
+        message: 'Saved to Offline Queue. It will sync automatically when back online.',
       });
     } else {
-      // Create a transient pending record so the user sees immediate progress if desired, then process
       const pendingId = crypto.randomUUID();
       await db.pendingReceipts.put({
         id: pendingId,
@@ -99,9 +132,7 @@ export async function ingestReceiptFiles(
 }
 
 /**
- * Processes a single item from db.pendingReceipts through the AI / OCR pipeline,
- * inserts a complete record into db.transactions, removes it from db.pendingReceipts,
- * and fires a toast notification.
+ * Processes a single item from db.pendingReceipts through the AI / OCR pipeline.
  */
 export async function processSinglePendingReceipt(
   pendingId: string,
@@ -110,16 +141,24 @@ export async function processSinglePendingReceipt(
   const item = await db.pendingReceipts.get(pendingId);
   if (!item) return null;
 
+  activeProcessingIds.add(pendingId);
   await db.pendingReceipts.update(pendingId, {
     status: 'processing',
     errorMessage: undefined,
   });
 
   try {
-    const extracted = await extractReceiptSmart(item.imageDataUrl, {
-      forceLocalOCR: options?.forceLocalOCR,
-      onProgress: options?.onProgress,
-    });
+    const extracted = await withTimeout(
+      extractReceiptSmart(item.imageDataUrl, {
+        forceLocalOCR: options?.forceLocalOCR,
+        onProgress: options?.onProgress,
+      }),
+      45000,
+      'Receipt extraction'
+    );
+
+    const engineTag =
+      extracted.extractionEngine === 'gemini' ? 'Gemini AI' : 'Local OCR';
 
     const newTx: Transaction = {
       id: crypto.randomUUID(),
@@ -145,15 +184,31 @@ export async function processSinglePendingReceipt(
       await db.pendingReceipts.delete(pendingId);
     });
 
-    emitNotification({
-      id: crypto.randomUUID(),
-      type: 'synced',
-      merchant: newTx.merchant,
-      amount: newTx.amount,
-      currency: newTx.currency,
-      transactionId: newTx.id,
-      message: `Receipt extracted: ${newTx.merchant} (${newTx.currency} ${newTx.amount.toFixed(2)})`,
-    });
+    if (extracted.fallbackReason && !options?.forceLocalOCR) {
+      emitNotification({
+        id: crypto.randomUUID(),
+        type: 'warning',
+        merchant: newTx.merchant,
+        amount: newTx.amount,
+        currency: newTx.currency,
+        transactionId: newTx.id,
+        message: `Used Local OCR (${newTx.merchant} ${newTx.currency} ${newTx.amount.toFixed(
+          2
+        )}). Gemini error: ${extracted.fallbackReason.slice(0, 90)}`,
+      });
+    } else {
+      emitNotification({
+        id: crypto.randomUUID(),
+        type: 'synced',
+        merchant: newTx.merchant,
+        amount: newTx.amount,
+        currency: newTx.currency,
+        transactionId: newTx.id,
+        message: `${engineTag} extracted ${newTx.merchant} (${newTx.currency} ${newTx.amount.toFixed(
+          2
+        )})`,
+      });
+    }
 
     return newTx;
   } catch (err) {
@@ -165,15 +220,16 @@ export async function processSinglePendingReceipt(
     emitNotification({
       id: crypto.randomUUID(),
       type: 'error',
-      message: `Receipt processing failed: ${msg}`,
+      message: `Receipt extraction failed: ${msg}`,
     });
     return null;
+  } finally {
+    activeProcessingIds.delete(pendingId);
   }
 }
 
 /**
- * Automatically drains all queued (and optionally failed) items in db.pendingReceipts
- * when connectivity is restored.
+ * Automatically drains all queued (and optionally failed/stuck) items in db.pendingReceipts.
  */
 export async function processOfflineQueue(includeFailed = false): Promise<number> {
   if (isDrainingQueue) return 0;
@@ -184,6 +240,8 @@ export async function processOfflineQueue(includeFailed = false): Promise<number
   let syncedCount = 0;
 
   try {
+    await recoverStuckReceipts();
+
     const allPending = await db.pendingReceipts.orderBy('createdAt').toArray();
     const targets = allPending.filter(
       (r) => r.status === 'queued' || (includeFailed && r.status === 'failed')
@@ -204,7 +262,7 @@ export async function processOfflineQueue(includeFailed = false): Promise<number
 }
 
 /**
- * Registers global online & visibilitychange listeners to auto-sync queued receipts.
+ * Registers global online & visibilitychange listeners and recovers stuck items on startup.
  */
 export function registerAutoSyncListeners(): () => void {
   const handleOnline = () => {
@@ -220,8 +278,8 @@ export function registerAutoSyncListeners(): () => void {
   window.addEventListener('online', handleOnline);
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
-  // Also check on startup
-  void processOfflineQueue(false);
+  // Recover any stuck 'processing' items immediately on startup, then drain queue if online
+  void recoverStuckReceipts().then(() => processOfflineQueue(false));
 
   return () => {
     window.removeEventListener('online', handleOnline);

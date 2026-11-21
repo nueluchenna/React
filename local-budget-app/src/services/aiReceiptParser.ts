@@ -18,6 +18,7 @@ export interface ExtractedReceiptData {
   summaryNote: string;
   lineItems: LineItem[];
   extractionEngine: 'gemini' | 'tesseract_fallback';
+  fallbackReason?: string;
 }
 
 export interface AICoachAdvice {
@@ -49,8 +50,71 @@ function sanitizeDateISO(raw?: string): string {
 }
 
 /**
+ * Creates a GoogleGenAI client supporting BOTH:
+ * - Google AI Studio keys (AIza...) -> standard Gemini Developer API
+ * - Vertex AI Express Mode keys (AQ....) -> vertexai: true
+ */
+export function createGeminiClient(apiKey: string): {
+  client: GoogleGenAI;
+  providerLabel: string;
+} {
+  const trimmed = apiKey.trim();
+  if (trimmed.startsWith('AQ.')) {
+    return {
+      client: new GoogleGenAI({ apiKey: trimmed, vertexai: true }),
+      providerLabel: 'Vertex AI Express',
+    };
+  }
+  return {
+    client: new GoogleGenAI({ apiKey: trimmed }),
+    providerLabel: 'Google AI Studio',
+  };
+}
+
+/**
+ * Live API Key verification helper for Settings
+ */
+export async function testGeminiApiKey(
+  apiKey: string,
+  modelName = 'gemini-2.5-flash'
+): Promise<{ ok: boolean; provider: string; message: string }> {
+  const trimmed = apiKey.trim();
+  if (!trimmed) {
+    return { ok: false, provider: 'None', message: 'API key is empty.' };
+  }
+
+  const { client, providerLabel } = createGeminiClient(trimmed);
+  try {
+    const res = await client.models.generateContent({
+      model: modelName || 'gemini-2.5-flash',
+      contents: 'Reply with OK',
+      config: { maxOutputTokens: 10 },
+    });
+    if (res.text) {
+      return {
+        ok: true,
+        provider: providerLabel,
+        message: `Connected successfully via ${providerLabel} (${modelName}).`,
+      };
+    }
+    return {
+      ok: true,
+      provider: providerLabel,
+      message: `Connected via ${providerLabel}.`,
+    };
+  } catch (err) {
+    const rawMsg = err instanceof Error ? err.message : String(err);
+    return {
+      ok: false,
+      provider: providerLabel,
+      message: `${providerLabel} rejected the key: ${rawMsg}`,
+    };
+  }
+}
+
+/**
  * 1. Gemini Flash Structured Output Mode (Primary)
- * Direct client-side @google/genai call using free-tier Google AI Studio API Key.
+ * Direct client-side @google/genai call using Google AI Studio (AIza...) or Vertex AI Express (AQ...) key.
  * Uses responseMimeType: "application/json" and a strict JSON schema.
  */
 export async function parseReceiptWithGemini(
@@ -59,7 +123,7 @@ export async function parseReceiptWithGemini(
   modelName = 'gemini-2.5-flash',
   defaultCurrency = 'EUR'
 ): Promise<ExtractedReceiptData> {
-  const client = new GoogleGenAI({ apiKey });
+  const { client } = createGeminiClient(apiKey);
   const { base64, mimeType } = extractBase64Payload(imageDataUrl);
   const today = todayISO();
 
@@ -80,11 +144,11 @@ export async function parseReceiptWithGemini(
       },
       totalAmount: {
         type: 'number',
-        description: 'Final total amount paid on the receipt',
+        description: 'Final total amount paid on the receipt (SUMME / zu zahlen / TOTAL)',
       },
       taxAmount: {
         type: 'number',
-        description: 'Total tax or VAT amount if shown on the receipt (0 if not shown)',
+        description: 'Total tax or VAT/MwSt amount if shown on the receipt (0 if not shown)',
       },
       category: {
         type: 'string',
@@ -127,8 +191,9 @@ export async function parseReceiptWithGemini(
         role: 'user',
         parts: [
           {
-            text: `Analyze this receipt image and extract the structured financial data.
+            text: `Analyze this receipt image (may be in English, German, French, or another European language like Lidl, Aldi, Rewe, etc.) and extract the structured financial data.
 - Today's date is ${today}. If the receipt date is missing or unclear, use ${today}.
+- Look carefully for the final paid total (e.g., "SUMME", "zu zahlen", "Kartenzahlung", "TOTAL", "Amount Due"). Note that European receipts use commas as decimal separators (e.g. 44,50 = 44.50).
 - Map category strictly to one of: ${SPENDEE_CATEGORIES.join(', ')}.
 - Extract every visible line item with its quantity, unitPrice, and totalPrice.
 - Provide a concise 3-6 word summaryNote describing the purchase.`,
@@ -199,13 +264,14 @@ export async function parseReceiptWithGemini(
 
 /**
  * 2. Keyless / Offline Smart Fallback (tesseract.js + Regex Heuristic Parser)
- * Runs free in-browser OCR via tesseract.js and applies regex heuristics to extract
- * merchant name, date, currency, line items, and total amount with zero API key setup.
+ * Improved to handle European/German/Lidl receipts (SUMME, zu zahlen, comma decimals like 44,50)
+ * and never invents a fake 12.50 total.
  */
 export async function parseReceiptWithLocalOCR(
   imageDataUrl: string,
   defaultCurrency = 'EUR',
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  fallbackReason?: string
 ): Promise<ExtractedReceiptData> {
   const Tesseract = await import('tesseract.js');
   const result = await Tesseract.recognize(imageDataUrl, 'eng', {
@@ -217,7 +283,14 @@ export async function parseReceiptWithLocalOCR(
   });
 
   const text = result.data.text || '';
-  return parseOCRTextHeuristically(text, defaultCurrency);
+  const parsed = parseOCRTextHeuristically(text, defaultCurrency);
+  return { ...parsed, fallbackReason };
+}
+
+function parseLocalizedNumber(raw: string): number {
+  const cleaned = raw.replace(/\s+/g, '').replace(',', '.');
+  const num = parseFloat(cleaned);
+  return Number.isFinite(num) ? num : 0;
 }
 
 export function parseOCRTextHeuristically(
@@ -235,28 +308,53 @@ export function parseOCRTextHeuristically(
   else if (rawText.includes('£') || /\bGBP\b/i.test(rawText)) currency = 'GBP';
   else if (rawText.includes('$') || /\bUSD\b/i.test(rawText)) currency = 'USD';
 
-  // 2. Detect Merchant Name (first meaningful non-date, non-numeric header line)
+  // 2. Detect Merchant Name (check known supermarkets first, then top header lines)
   let merchant = 'Scanned Receipt';
-  for (const line of lines.slice(0, 6)) {
-    const clean = line.replace(/[^a-zA-Z0-9\s&'.-]/g, '').trim();
-    if (
-      clean.length >= 3 &&
-      !/^(date|time|receipt|tel|phone|tax|vat|invoice|welcome|thank)/i.test(clean) &&
-      !/^\d+$/.test(clean)
-    ) {
-      merchant = clean
-        .split(/\s+/)
-        .slice(0, 4)
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-        .join(' ');
-      break;
+  const knownMerchants = [
+    { pattern: /\blidl\b/i, name: 'Lidl' },
+    { pattern: /\baldi\b/i, name: 'Aldi' },
+    { pattern: /\brewe\b/i, name: 'REWE' },
+    { pattern: /\bedeka\b/i, name: 'EDEKA' },
+    { pattern: /\bkaufland\b/i, name: 'Kaufland' },
+    { pattern: /\bpenny\b/i, name: 'Penny' },
+    { pattern: /\bnetto\b/i, name: 'Netto' },
+    { pattern: /\bdm[\s-]?drogerie/i, name: 'dm-drogerie markt' },
+    { pattern: /\brossmann\b/i, name: 'Rossmann' },
+    { pattern: /\bcarrefour\b/i, name: 'Carrefour' },
+    { pattern: /\btesco\b/i, name: 'Tesco' },
+    { pattern: /\bikea\b/i, name: 'IKEA' },
+    { pattern: /\bstarbucks\b/i, name: 'Starbucks' },
+  ];
+
+  const knownMatch = knownMerchants.find((m) => m.pattern.test(rawText));
+  if (knownMatch) {
+    merchant = knownMatch.name;
+  } else {
+    for (const line of lines.slice(0, 6)) {
+      const clean = line.replace(/[^a-zA-Z0-9\s&'.-]/g, '').trim();
+      if (
+        clean.length >= 3 &&
+        !/^(date|datum|time|zeit|receipt|bon|beleg|tel|phone|tax|vat|mwst|ust|invoice|welcome|thank|eur)/i.test(
+          clean
+        ) &&
+        !/^\d+$/.test(clean)
+      ) {
+        merchant = clean
+          .split(/\s+/)
+          .slice(0, 4)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+          .join(' ');
+        break;
+      }
     }
   }
 
-  // 3. Detect Date (YYYY-MM-DD, DD/MM/YYYY, DD.MM.YYYY, MM/DD/YYYY)
+  // 3. Detect Date (YYYY-MM-DD, DD.MM.YYYY, DD/MM/YYYY, DD.MM.YY)
   let date = todayISO();
   const isoMatch = rawText.match(/\b(20\d{2})[-/.](0[1-9]|1[0-2])[-/.](0[1-9]|[12]\d|3[01])\b/);
-  const dmyMatch = rawText.match(/\b(0?[1-9]|[12]\d|3[01])[-/.](0?[1-9]|1[0-2])[-/.](20\d{2}|\d{2})\b/);
+  const dmyMatch = rawText.match(
+    /\b(0?[1-9]|[12]\d|3[01])[./-](0?[1-9]|1[0-2])[./-](20\d{2}|\d{2})\b/
+  );
   if (isoMatch) {
     date = `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
   } else if (dmyMatch) {
@@ -266,26 +364,40 @@ export function parseOCRTextHeuristically(
     date = `${year}-${month}-${day}`;
   }
 
-  // 4. Extract Line Items & Total Amount
+  // 4. Extract Line Items & Total Amount (supports German/European receipts like Lidl)
   const lineItems: LineItem[] = [];
   let explicitTotal = 0;
   let taxAmount: number | undefined;
 
-  const totalRegex = /\b(total|amount\s*due|grand\s*total|summe|gesamt|balance|to\s*pay)\b.*?(\d+[.,]\d{2})\b/i;
-  const taxRegex = /\b(tax|vat|mwst|tva|gst)\b.*?(\d+[.,]\d{2})\b/i;
-  const linePriceRegex = /^(.+?)\s+[€$£]?(\d+[.,]\d{2})\s*[A-Z]?$/;
+  const totalRegex =
+    /\b(zu\s*zahlen|summe|gesamt(?:betrag)?|total|amount\s*due|grand\s*total|kartenzahlung|ec-karte|visa|mastercard|bezahlt|bar)\b[^0-9]*?(\d{1,5}[.,]\d{2})\b/i;
+  const taxRegex = /\b(tax|vat|mwst|ust|tva|gst|steuer)\b[^0-9]*?(\d{1,4}[.,]\d{2})\b/i;
+  // Matches item lines like "Vollmilch 3,5%   1,29 A" or "Bananen   2.45"
+  const linePriceRegex = /^(.+?)\s+[€$£]?(-?\d{1,4}[.,]\d{2})\s*[A-Z*]?$/;
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
     const tMatch = line.match(totalRegex);
     if (tMatch) {
-      const val = parseFloat(tMatch[2].replace(',', '.'));
+      const val = parseLocalizedNumber(tMatch[2]);
       if (val > explicitTotal) explicitTotal = val;
       continue;
     }
 
+    // Sometimes "ZU ZAHLEN" or "SUMME" is on one line and the number is on the very next line
+    if (/^(zu\s*zahlen|summe|gesamt|total)\b/i.test(line) && i + 1 < lines.length) {
+      const nextNum = lines[i + 1].match(/(\d{1,5}[.,]\d{2})/);
+      if (nextNum) {
+        const val = parseLocalizedNumber(nextNum[1]);
+        if (val > explicitTotal) explicitTotal = val;
+        continue;
+      }
+    }
+
     const vatMatch = line.match(taxRegex);
     if (vatMatch) {
-      const val = parseFloat(vatMatch[2].replace(',', '.'));
+      const val = parseLocalizedNumber(vatMatch[2]);
       if (val > 0) taxAmount = val;
       continue;
     }
@@ -293,12 +405,14 @@ export function parseOCRTextHeuristically(
     const itemMatch = line.match(linePriceRegex);
     if (itemMatch) {
       const rawName = itemMatch[1].replace(/[.*_=-]{2,}/g, ' ').trim();
-      const price = parseFloat(itemMatch[2].replace(',', '.'));
+      const price = parseLocalizedNumber(itemMatch[2]);
       if (
         rawName.length >= 2 &&
         price > 0 &&
-        price < 10000 &&
-        !/\b(subtotal|sub-total|change|cash|visa|mastercard|card|tendered|discount)\b/i.test(rawName)
+        price < 5000 &&
+        !/\b(subtotal|sub-total|zwischensumme|rückgeld|rueckgeld|change|gegeben|cash|visa|mastercard|card|tendered|rabatt|discount|pfand\s*zurück|brutto|netto|mwst)\b/i.test(
+          rawName
+        )
       ) {
         const qtyPrefix = rawName.match(/^(\d+)\s*[xX*]\s*(.+)$/);
         if (qtyPrefix) {
@@ -321,31 +435,46 @@ export function parseOCRTextHeuristically(
     }
   }
 
-  // Fallback: find the largest currency number in the receipt if explicit total wasn't matched
+  // Fallback: largest price in receipt (ignoring timestamps/barcodes)
   if (explicitTotal <= 0) {
-    const allPrices = [...rawText.matchAll(/(\d+[.,]\d{2})/g)]
-      .map((m) => parseFloat(m[1].replace(',', '.')))
-      .filter((n) => !Number.isNaN(n) && n > 0 && n < 25000);
+    const allPrices = [...rawText.matchAll(/(?:^|[\s€$£])(\d{1,4}[.,]\d{2})(?:\s*[A-Z]?$|\s)/gm)]
+      .map((m) => parseLocalizedNumber(m[1]))
+      .filter((n) => n > 0 && n < 10000);
     if (allPrices.length > 0) {
       explicitTotal = Math.max(...allPrices);
     }
   }
 
   const itemsSum = lineItems.reduce((acc, i) => acc + i.totalPrice, 0);
-  const totalAmount = explicitTotal > 0 ? explicitTotal : Number(itemsSum.toFixed(2)) || 12.5;
+  const totalAmount =
+    explicitTotal > 0 ? explicitTotal : itemsSum > 0 ? Number(itemsSum.toFixed(2)) : 0;
 
-  // 5. Infer category from merchant + OCR text keywords
+  // 5. Infer category
   const combinedLower = `${merchant} ${rawText}`.toLowerCase();
   let category: SpendeeCategory = 'Other';
-  if (/market|grocer|lidl|aldi|tesco|rewe|edeka|carrefour|whole foods|organic|milk|bread|egg|fruit/i.test(combinedLower)) {
+  if (
+    /market|grocer|lidl|aldi|tesco|rewe|edeka|kaufland|penny|netto|carrefour|whole foods|organic|milk|milch|bread|brot|egg|fruit|obst|gemüse/i.test(
+      combinedLower
+    )
+  ) {
     category = 'Groceries';
-  } else if (/cafe|coffee|restaurant|bistro|pizza|burger|bakery|bar|kitchen|grill|tea|latte|espresso/i.test(combinedLower)) {
+  } else if (
+    /cafe|coffee|restaurant|bistro|pizza|burger|bakery|bäcker|bar|kitchen|grill|tea|latte|espresso/i.test(
+      combinedLower
+    )
+  ) {
     category = 'Food & Drink';
-  } else if (/uber|bolt|taxi|metro|train|rail|bus|fuel|shell|bp|parking|transit|ticket/i.test(combinedLower)) {
+  } else if (
+    /uber|bolt|taxi|metro|train|rail|bahn|bus|fuel|tankstelle|shell|aral|bp|parking|transit|ticket/i.test(
+      combinedLower
+    )
+  ) {
     category = 'Transport';
-  } else if (/pharm|apotheke|health|clinic|medical|dental|vitamin/i.test(combinedLower)) {
+  } else if (
+    /pharm|apotheke|dm-drogerie|rossmann|health|clinic|medical|dental|vitamin/i.test(combinedLower)
+  ) {
     category = 'Health';
-  } else if (/cinema|movie|theater|museum|concert|netflix|spotify/i.test(combinedLower)) {
+  } else if (/cinema|kino|movie|theater|museum|concert|netflix|spotify/i.test(combinedLower)) {
     category = 'Entertainment';
   } else if (/hotel|airbnb|flight|airline|booking/i.test(combinedLower)) {
     category = 'Travel';
@@ -389,8 +518,7 @@ export function parseOCRTextHeuristically(
 
 /**
  * Unified Dual-Mode Entry Point:
- * Uses Gemini Structured Output if an API key is configured; otherwise falls back automatically
- * to Keyless In-Browser OCR (tesseract.js + Regex Heuristic Parser).
+ * Uses Gemini Structured Output if an API key is configured; surfaces exact reason if fallback happens.
  */
 export async function extractReceiptSmart(
   imageDataUrl: string,
@@ -412,17 +540,27 @@ export async function extractReceiptSmart(
         defaultCurrency
       );
     } catch (err) {
-      console.warn('Gemini receipt extraction failed, falling back to local Tesseract OCR:', err);
-      return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress);
+      const reason = err instanceof Error ? err.message : String(err);
+      console.warn('Gemini receipt extraction failed, falling back to local OCR:', reason);
+      return await parseReceiptWithLocalOCR(
+        imageDataUrl,
+        defaultCurrency,
+        options?.onProgress,
+        reason
+      );
     }
   }
 
-  return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress);
+  return await parseReceiptWithLocalOCR(
+    imageDataUrl,
+    defaultCurrency,
+    options?.onProgress,
+    options?.forceLocalOCR ? undefined : 'No Gemini API key configured'
+  );
 }
 
 /**
  * AI Deep Financial Coach for Analytics Dashboard
- * Sends anonymized category & merchant totals to Gemini (or generates smart local coaching if no key is configured).
  */
 export async function generateAIFinancialCoachAdvice(summary: {
   periodLabel: string;
@@ -438,7 +576,7 @@ export async function generateAIFinancialCoachAdvice(summary: {
 
   if (apiKey && apiKey.trim().length > 10) {
     try {
-      const client = new GoogleGenAI({ apiKey: apiKey.trim() });
+      const { client } = createGeminiClient(apiKey);
       const responseSchema = {
         type: 'object',
         properties: {
@@ -499,7 +637,6 @@ Provide:
     }
   }
 
-  // Local Smart Financial Coach fallback (works 100% offline & keyless)
   const topCat = summary.categoryTotals[0];
   const secondCat = summary.categoryTotals[1];
   const topMerch = summary.topMerchants[0];
@@ -518,7 +655,7 @@ Provide:
         ? `Your #1 category is ${topCat.category} (${cur} ${topCat.amount.toFixed(2)}), accounting for ${topCat.percentage.toFixed(1)}% of total spend.`
         : 'Add more categorized expenses to unlock deeper category trends.',
       summary.weekendVsWeekdayRatio > 1.25
-        ? `You spend ${summary.weekendVsWeekdayRatio.toFixed(1)}x more per day on weekends than on weekdays — mostly driven by leisure and dining.`
+        ? `You spend ${summary.weekendVsWeekdayRatio.toFixed(1)}x more per day on weekends than on weekdays.`
         : `Your weekday and weekend spending pace is balanced (${summary.weekendVsWeekdayRatio.toFixed(1)}x ratio).`,
       topMerch
         ? `Your top merchant is ${topMerch.merchant} (${cur} ${topMerch.amount.toFixed(2)} across ${topMerch.count} visit${topMerch.count > 1 ? 's' : ''}).`
@@ -529,16 +666,16 @@ Provide:
         title: diningAndFood
           ? 'Trim Impulse Dining & Coffee Runs by 25%'
           : `Set a Weekly Cap on ${topCat?.category || 'Discretionary Spend'}`,
-        estimatedMonthlySavings: `${cur} ${Math.max(25, ((diningAndFood?.amount || topCat?.amount || 120) * 0.25)).toFixed(0)}/mo`,
+        estimatedMonthlySavings: `${cur} ${Math.max(25, (diningAndFood?.amount || topCat?.amount || 120) * 0.25).toFixed(0)}/mo`,
         action: diningAndFood
           ? `You spent ${cur} ${diningAndFood.amount.toFixed(2)} on Food & Drink. Swapping 2 restaurant/cafe orders per week for home prep saves ~25% immediately.`
           : `Cap your weekly ${topCat?.category || 'top category'} spend at ${cur} ${(((topCat?.amount || 200) * 0.8) / 4).toFixed(0)} to stay comfortably below budget.`,
       },
       {
         title: groceries
-          ? 'Consolidate Grocery Trips & Use Line-Item Price Checks'
+          ? 'Consolidate Grocery Trips & Check Itemized Prices'
           : 'Use the 48-Hour Rule for Non-Essential Purchases',
-        estimatedMonthlySavings: `${cur} ${Math.max(20, ((groceries?.amount || secondCat?.amount || 140) * 0.15)).toFixed(0)}/mo`,
+        estimatedMonthlySavings: `${cur} ${Math.max(20, (groceries?.amount || secondCat?.amount || 140) * 0.15).toFixed(0)}/mo`,
         action: groceries
           ? `Review your itemized grocery receipts in SpendeeAI — consolidating into 1 planned weekly basket typically cuts impulse add-ons by 15%.`
           : `Waiting 48 hours before completing non-essential purchases reduces impulse checkout totals by 15-20%.`,
@@ -548,10 +685,10 @@ Provide:
           summary.weekendVsWeekdayRatio > 1.3
             ? 'Pre-Budget Your Weekend Spend Every Friday'
             : 'Automate Savings Before Discretionary Shopping',
-        estimatedMonthlySavings: `${cur} ${Math.max(30, ((shopping?.amount || summary.totalSpent * 0.1) * 0.3)).toFixed(0)}/mo`,
+        estimatedMonthlySavings: `${cur} ${Math.max(30, (shopping?.amount || summary.totalSpent * 0.1) * 0.3).toFixed(0)}/mo`,
         action:
           summary.weekendVsWeekdayRatio > 1.3
-            ? `Since your weekend spend is ${summary.weekendVsWeekdayRatio.toFixed(1)}x higher than weekdays, setting a fixed Friday-to-Sunday allowance prevents end-of-month budget creep.`
+            ? `Since your weekend spend is ${summary.weekendVsWeekdayRatio.toFixed(1)}x higher than weekdays, setting a fixed Friday-to-Sunday allowance prevents budget creep.`
             : `Set aside 10% of your monthly income right on payday and track category sub-budgets in Settings.`,
       },
     ],

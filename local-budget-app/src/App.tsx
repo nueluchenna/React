@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Receipt,
@@ -6,18 +6,19 @@ import {
   Plus,
   Clock,
   Settings,
-  Wifi,
-  WifiOff,
   Camera,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
+  Upload,
+  ClipboardPaste,
   X,
+  RotateCcw,
 } from 'lucide-react';
 import {
   db,
   getSetting,
   setSetting,
+  formatCurrency,
   type Transaction,
 } from './db/db';
 import { loadDemoData } from './db/demoData';
@@ -35,6 +36,7 @@ import { QueueView } from './components/QueueView';
 import { SettingsView } from './components/SettingsView';
 import { ManualEntryModal } from './components/ManualEntryModal';
 import { TransactionDetailModal } from './components/TransactionDetailModal';
+import { CameraCaptureModal } from './components/CameraCaptureModal';
 
 type NavTab = 'feed' | 'analytics' | 'queue' | 'settings';
 
@@ -42,10 +44,12 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('feed');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [showManualModal, setShowManualModal] = useState(false);
+  const [showCameraModal, setShowCameraModal] = useState(false);
   const [showAddActionMenu, setShowAddActionMenu] = useState(false);
 
   const [currency, setCurrency] = useState('EUR');
   const [monthlyBudget, setMonthlyBudget] = useState(1600);
+  const [monthlySavingsGoal, setMonthlySavingsGoal] = useState(400);
   const [simulateOffline, setSimulateOffline] = useState(false);
   const [browserOnline, setBrowserOnline] = useState<boolean>(() => navigator.onLine);
   const [isSyncingQueue, setIsSyncingQueue] = useState(false);
@@ -53,7 +57,6 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Live reactive queries from IndexedDB via dexie-react-hooks
   const transactions = useLiveQuery(() => db.transactions.toArray(), [], []);
   const pendingReceipts = useLiveQuery(
     () => db.pendingReceipts.orderBy('createdAt').reverse().toArray(),
@@ -69,17 +72,19 @@ export default function App() {
     setToasts((prev) => [{ ...notif, id }, ...prev.slice(0, 3)]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 5500);
+    }, 6500);
   };
 
   const refreshSettings = async () => {
-    const [cur, bud, simOff] = await Promise.all([
+    const [cur, bud, sav, simOff] = await Promise.all([
       getSetting<string>('defaultCurrency', 'EUR'),
       getSetting<number>('monthlyBudget', 1600),
+      getSetting<number>('monthlySavingsGoal', 400),
       getSetting<boolean>('simulateOffline', false),
     ]);
     setCurrency(cur);
     setMonthlyBudget(Number(bud) || 1600);
+    setMonthlySavingsGoal(Number(sav) || 400);
     setSimulateOffline(Boolean(simOff));
   };
 
@@ -103,7 +108,7 @@ export default function App() {
     };
   }, []);
 
-  // Global Paste Listener (Ctrl+V / Mobile Clipboard Screenshot Capture)
+  // Global Paste Listener (Ctrl+V)
   useEffect(() => {
     const handleGlobalPaste = async (e: ClipboardEvent) => {
       const items = e.clipboardData?.items;
@@ -128,7 +133,6 @@ export default function App() {
     return () => window.removeEventListener('paste', handleGlobalPaste);
   }, []);
 
-  // Toggle "Online / Simulate Offline" mode in header
   const handleToggleSimulateOffline = async () => {
     const nextVal = !simulateOffline;
     setSimulateOffline(nextVal);
@@ -137,13 +141,12 @@ export default function App() {
     if (nextVal) {
       pushToast({
         type: 'queued',
-        message:
-          'Simulate Offline Mode ON: Any scanned or pasted receipts will queue locally in IndexedDB.',
+        message: 'Offline mode enabled. Captured receipts will queue locally.',
       });
     } else {
       pushToast({
         type: 'synced',
-        message: 'Back Online! Checking Offline Queue for pending receipts...',
+        message: 'Back online. Syncing any queued receipts...',
       });
       setIsSyncingQueue(true);
       try {
@@ -163,13 +166,17 @@ export default function App() {
     await ingestReceiptFiles(files);
   };
 
+  const handleCameraCaptured = async (file: File) => {
+    await ingestReceiptFiles([file]);
+  };
+
   const handleClipboardButtonPaste = async () => {
     setShowAddActionMenu(false);
     try {
       if (!navigator.clipboard?.read) {
         pushToast({
           type: 'error',
-          message: 'Press Ctrl+V (or Cmd+V) anywhere on the page to paste a screenshot.',
+          message: 'Press Ctrl+V (or Cmd+V) anywhere to paste a screenshot.',
         });
         return;
       }
@@ -185,7 +192,7 @@ export default function App() {
       if (blobs.length === 0) {
         pushToast({
           type: 'error',
-          message: 'No image found in clipboard. Copy a receipt screenshot first or press Ctrl+V.',
+          message: 'No image in clipboard. Copy a receipt screenshot first.',
         });
         return;
       }
@@ -193,7 +200,7 @@ export default function App() {
     } catch {
       pushToast({
         type: 'error',
-        message: 'Clipboard permission blocked — simply press Ctrl+V (or Cmd+V) to paste!',
+        message: 'Press Ctrl+V (or Cmd+V) directly to paste an image.',
       });
     }
   };
@@ -203,7 +210,7 @@ export default function App() {
     await refreshSettings();
     pushToast({
       type: 'synced',
-      message: `Loaded ${count} realistic demo receipts with itemized line items!`,
+      message: `Loaded ${count} realistic demo transactions.`,
     });
   };
 
@@ -214,7 +221,7 @@ export default function App() {
       if (count === 0 && isEffectivelyOffline) {
         pushToast({
           type: 'queued',
-          message: 'Switch "Simulate Offline" back to "Online" in the top bar to sync.',
+          message: 'Switch back to Online in the header to sync queued receipts.',
         });
       }
     } finally {
@@ -222,17 +229,17 @@ export default function App() {
     }
   };
 
-  const existingMerchants = useMemo(() => {
-    const set = new Set<string>();
-    for (const tx of transactions) {
-      if (tx.merchant) set.add(tx.merchant);
-    }
-    return Array.from(set);
-  }, [transactions]);
+  const handleUndoDelete = async (tx: Transaction, toastId: string) => {
+    await db.transactions.put(tx);
+    setToasts((prev) => prev.filter((t) => t.id !== toastId));
+    pushToast({
+      type: 'synced',
+      message: `Restored ${tx.merchant} (${formatCurrency(tx.amount, tx.currency || currency)})`,
+    });
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
-      {/* Hidden multi-file receipt input */}
+    <div className="min-h-screen bg-[#f7f8fa] text-slate-900 flex flex-col">
       <input
         ref={fileInputRef}
         type="file"
@@ -242,31 +249,21 @@ export default function App() {
         className="hidden"
       />
 
-      {/* Sticky Top Header */}
-      <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-slate-200/80">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
-          {/* Brand Logo */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-500 to-indigo-600 flex items-center justify-center text-white font-black text-lg shadow-sm">
+      {/* Minimal, Clean Sticky Header */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/70">
+        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
+          {/* Brand */}
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">
               S
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h1 className="font-extrabold text-slate-900 text-base sm:text-lg tracking-tight leading-none">
-                  Spendee<span className="text-emerald-600">AI</span>
-                </h1>
-                <span className="hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Local-First PWA
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 hidden sm:block">
-                100% Free Offline Receipt & Expense Tracker
-              </p>
-            </div>
+            <span className="font-bold text-slate-900 text-base tracking-tight">
+              Spendee<span className="text-emerald-600">AI</span>
+            </span>
           </div>
 
-          {/* Desktop Navigation Pills */}
-          <nav className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-2xl">
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center gap-1">
             {(
               [
                 { id: 'feed', label: 'Feed', icon: Receipt },
@@ -287,16 +284,16 @@ export default function App() {
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-semibold transition cursor-pointer ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
                     active
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-slate-100 text-slate-900 font-semibold'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3.5 h-3.5" />
                   <span>{item.label}</span>
                   {'badge' in item && item.badge ? (
-                    <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-white text-[10px] font-bold">
+                    <span className="px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">
                       {item.badge}
                     </span>
                   ) : null}
@@ -305,71 +302,69 @@ export default function App() {
             })}
           </nav>
 
-          {/* Right Header Controls: Visible "Online / Simulate Offline" Toggle Pill + Quick Scan */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleToggleSimulateOffline}
-              title="Click to toggle Simulate Offline Mode and test the Offline Receipt Queue!"
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition cursor-pointer ${
-                isEffectivelyOffline
-                  ? 'bg-amber-100 text-amber-900 border-amber-300 shadow-2xs'
-                  : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+          {/* Compact Status Toggle */}
+          <button
+            type="button"
+            onClick={handleToggleSimulateOffline}
+            title="Toggle simulated offline mode"
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition cursor-pointer ${
+              isEffectivelyOffline
+                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isEffectivelyOffline ? 'bg-amber-500' : 'bg-emerald-500'
               }`}
-            >
-              {isEffectivelyOffline ? (
-                <>
-                  <WifiOff className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Simulate Offline: ON</span>
-                </>
-              ) : (
-                <>
-                  <Wifi className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Online (Click to Test Offline)</span>
-                </>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs transition cursor-pointer"
-            >
-              <Camera className="w-4 h-4" />
-              <span>Scan Receipt</span>
-            </button>
-          </div>
+            />
+            <span>{isEffectivelyOffline ? 'Offline' : 'Online'}</span>
+          </button>
         </div>
       </header>
 
-      {/* Toast Notifications Stack */}
+      {/* Toast Notifications with Undo support */}
       {toasts.length > 0 && (
-        <div className="fixed top-20 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+        <div className="fixed top-16 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
           {toasts.map((t) => (
             <div
               key={t.id}
-              className={`pointer-events-auto flex items-start justify-between gap-2.5 p-3.5 rounded-2xl shadow-lg border backdrop-blur-md transition-all ${
+              className={`pointer-events-auto flex items-start justify-between gap-2.5 p-3 rounded-xl shadow-lg border transition-all ${
                 t.type === 'error'
-                  ? 'bg-rose-950/95 text-white border-rose-700'
+                  ? 'bg-rose-950 text-white border-rose-800'
+                  : t.type === 'warning'
+                  ? 'bg-amber-950 text-amber-50 border-amber-700'
                   : t.type === 'queued'
-                  ? 'bg-amber-950/95 text-amber-50 border-amber-700'
-                  : 'bg-slate-900/95 text-white border-emerald-500/40'
+                  ? 'bg-slate-900 text-amber-100 border-slate-700'
+                  : 'bg-slate-900 text-white border-slate-800'
               }`}
             >
-              <div className="flex items-start gap-2.5 text-xs sm:text-sm">
-                {t.type === 'error' ? (
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2 text-xs">
+                {t.type === 'error' || t.type === 'warning' ? (
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 ) : t.type === 'queued' ? (
                   <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 ) : (
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 )}
-                <span className="font-medium leading-snug">{t.message}</span>
+                <div className="space-y-1">
+                  <div className="font-medium leading-snug">{t.message}</div>
+                  {t.undoTransaction && (
+                    <button
+                      type="button"
+                      onClick={() => void handleUndoDelete(t.undoTransaction!, t.id)}
+                      className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-semibold underline cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Undo Delete</span>
+                    </button>
+                  )}
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setToasts((prev) => prev.filter((item) => item.id !== t.id))}
-                className="text-slate-400 hover:text-white p-0.5 cursor-pointer"
+                className="text-slate-400 hover:text-white p-0.5 cursor-pointer shrink-0"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -378,8 +373,8 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 pt-5">
+      {/* Main Content */}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-5">
         {activeTab === 'feed' && (
           <TransactionFeed
             transactions={transactions}
@@ -390,6 +385,7 @@ export default function App() {
             isSyncingQueue={isSyncingQueue}
             onSelectTransaction={(tx) => setSelectedTransaction(tx)}
             onOpenManualEntry={() => setShowManualModal(true)}
+            onOpenCamera={() => setShowCameraModal(true)}
             onTriggerFileUpload={() => fileInputRef.current?.click()}
             onPasteClipboard={handleClipboardButtonPaste}
             onLoadDemoData={handleLoadDemo}
@@ -397,7 +393,7 @@ export default function App() {
             onOpenQueueTab={() => setActiveTab('queue')}
             onExportSummaryCSV={() => {
               exportSummaryCSV(transactions);
-              pushToast({ type: 'synced', message: 'Summary CSV downloaded!' });
+              pushToast({ type: 'synced', message: 'Summary CSV downloaded.' });
             }}
           />
         )}
@@ -408,6 +404,7 @@ export default function App() {
             budgets={budgets}
             currency={currency}
             monthlyBudget={monthlyBudget}
+            monthlySavingsGoal={monthlySavingsGoal}
             onLoadDemoData={handleLoadDemo}
           />
         )}
@@ -416,8 +413,8 @@ export default function App() {
           <QueueView
             pendingReceipts={pendingReceipts}
             isOffline={isEffectivelyOffline}
-            currency={currency}
             onTriggerUpload={() => fileInputRef.current?.click()}
+            onOpenCamera={() => setShowCameraModal(true)}
           />
         )}
 
@@ -426,6 +423,7 @@ export default function App() {
             transactions={transactions}
             currency={currency}
             monthlyBudget={monthlyBudget}
+            monthlySavingsGoal={monthlySavingsGoal}
             onSettingsChanged={refreshSettings}
             onLoadDemoData={handleLoadDemo}
             onShowToast={(msg) => pushToast({ type: 'synced', message: msg })}
@@ -433,45 +431,44 @@ export default function App() {
         )}
       </main>
 
-      {/* Floating Action Menu Popup when "+ Add / Scan" is tapped */}
+      {/* Mobile Add / Scan Action Sheet */}
       {showAddActionMenu && (
         <div
           className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex items-end justify-center pb-20 sm:pb-8"
           onClick={() => setShowAddActionMenu(false)}
         >
           <div
-            className="bg-white rounded-3xl p-4 shadow-2xl border border-slate-200 w-full max-w-xs mx-4 space-y-2"
+            className="bg-white rounded-2xl p-3 shadow-xl border border-slate-200 w-full max-w-xs mx-4 space-y-1.5"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400 px-2 pb-1">
-              Add Expense or Scan Receipt
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setShowAddActionMenu(false);
+                setShowCameraModal(true);
+              }}
+              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 text-slate-900 font-medium text-sm transition cursor-pointer"
+            >
+              <Camera className="w-4 h-4 text-emerald-600" />
+              <span>Take Receipt Photo</span>
+            </button>
+
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full flex items-center gap-3 p-3 rounded-2xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-semibold text-sm transition cursor-pointer"
+              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 text-slate-900 font-medium text-sm transition cursor-pointer"
             >
-              <Camera className="w-5 h-5 text-emerald-600" />
-              <div className="text-left">
-                <div>Snap / Upload Receipt</div>
-                <div className="text-[11px] font-normal text-emerald-700">
-                  AI or Local OCR extraction
-                </div>
-              </div>
+              <Upload className="w-4 h-4 text-slate-600" />
+              <span>Upload Receipt Image</span>
             </button>
 
             <button
               type="button"
               onClick={handleClipboardButtonPaste}
-              className="w-full flex items-center gap-3 p-3 rounded-2xl bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-semibold text-sm transition cursor-pointer"
+              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 text-slate-900 font-medium text-sm transition cursor-pointer"
             >
-              <Sparkles className="w-5 h-5 text-indigo-600" />
-              <div className="text-left">
-                <div>1-Tap Paste Screenshot</div>
-                <div className="text-[11px] font-normal text-indigo-700">
-                  Grab receipt from clipboard
-                </div>
-              </div>
+              <ClipboardPaste className="w-4 h-4 text-slate-600" />
+              <span>Paste Screenshot</span>
             </button>
 
             <button
@@ -480,47 +477,22 @@ export default function App() {
                 setShowAddActionMenu(false);
                 setShowManualModal(true);
               }}
-              className="w-full flex items-center gap-3 p-3 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-900 font-semibold text-sm transition cursor-pointer"
+              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 text-slate-900 font-medium text-sm transition cursor-pointer"
             >
-              <Plus className="w-5 h-5 text-slate-700" />
-              <div className="text-left">
-                <div>Fast Manual Keypad Entry</div>
-                <div className="text-[11px] font-normal text-slate-600">
-                  Spendee calculator modal
-                </div>
-              </div>
+              <Plus className="w-4 h-4 text-slate-600" />
+              <span>Manual Entry</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* Desktop Floating Action Button (FAB) */}
-      <div className="hidden md:flex fixed bottom-6 right-6 z-30 items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setShowManualModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm shadow-lg transition cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Manual Entry</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-lg shadow-emerald-900/20 transition cursor-pointer"
-        >
-          <Camera className="w-4 h-4" />
-          <span>+ Scan Receipt</span>
-        </button>
-      </div>
-
-      {/* Sticky Mobile Bottom Navigation Bar */}
+      {/* Sticky Mobile Bottom Nav */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around">
         <button
           type="button"
           onClick={() => setActiveTab('feed')}
-          className={`flex flex-col items-center py-1 px-3 rounded-xl text-[11px] font-semibold cursor-pointer ${
-            activeTab === 'feed' ? 'text-emerald-600' : 'text-slate-500'
+          className={`flex flex-col items-center py-1 px-3 rounded-xl text-[11px] font-medium cursor-pointer ${
+            activeTab === 'feed' ? 'text-slate-900 font-semibold' : 'text-slate-400'
           }`}
         >
           <Receipt className="w-5 h-5 mb-0.5" />
@@ -530,29 +502,28 @@ export default function App() {
         <button
           type="button"
           onClick={() => setActiveTab('analytics')}
-          className={`flex flex-col items-center py-1 px-3 rounded-xl text-[11px] font-semibold cursor-pointer ${
-            activeTab === 'analytics' ? 'text-emerald-600' : 'text-slate-500'
+          className={`flex flex-col items-center py-1 px-3 rounded-xl text-[11px] font-medium cursor-pointer ${
+            activeTab === 'analytics' ? 'text-slate-900 font-semibold' : 'text-slate-400'
           }`}
         >
           <PieChart className="w-5 h-5 mb-0.5" />
           <span>Analytics</span>
         </button>
 
-        {/* Center Raised "+ Add / Scan" FAB */}
         <button
           type="button"
           onClick={() => setShowAddActionMenu((v) => !v)}
-          className="flex flex-col items-center justify-center -mt-5 w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-600/30 cursor-pointer"
+          className="flex items-center justify-center -mt-4 w-12 h-12 rounded-full bg-emerald-600 text-white shadow-md cursor-pointer"
+          aria-label="Add or scan"
         >
           <Plus className="w-6 h-6" />
-          <span className="text-[9px] font-bold">Add/Scan</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('queue')}
-          className={`relative flex flex-col items-center py-1 px-3 rounded-xl text-[11px] font-semibold cursor-pointer ${
-            activeTab === 'queue' ? 'text-emerald-600' : 'text-slate-500'
+          className={`relative flex flex-col items-center py-1 px-3 rounded-xl text-[11px] font-medium cursor-pointer ${
+            activeTab === 'queue' ? 'text-slate-900 font-semibold' : 'text-slate-400'
           }`}
         >
           <Clock className="w-5 h-5 mb-0.5" />
@@ -567,8 +538,8 @@ export default function App() {
         <button
           type="button"
           onClick={() => setActiveTab('settings')}
-          className={`flex flex-col items-center py-1 px-3 rounded-xl text-[11px] font-semibold cursor-pointer ${
-            activeTab === 'settings' ? 'text-emerald-600' : 'text-slate-500'
+          className={`flex flex-col items-center py-1 px-3 rounded-xl text-[11px] font-medium cursor-pointer ${
+            activeTab === 'settings' ? 'text-slate-900 font-semibold' : 'text-slate-400'
           }`}
         >
           <Settings className="w-5 h-5 mb-0.5" />
@@ -580,14 +551,21 @@ export default function App() {
       {showManualModal && (
         <ManualEntryModal
           currency={currency}
-          existingMerchants={existingMerchants}
+          transactions={transactions}
           onClose={() => setShowManualModal(false)}
           onSaved={(tx) =>
             pushToast({
               type: 'synced',
-              message: `Saved ${tx.merchant} (${tx.currency} ${tx.amount.toFixed(2)})`,
+              message: `Saved ${tx.merchant} (${formatCurrency(tx.amount, tx.currency || currency)})`,
             })
           }
+        />
+      )}
+
+      {showCameraModal && (
+        <CameraCaptureModal
+          onCapture={(file) => void handleCameraCaptured(file)}
+          onClose={() => setShowCameraModal(false)}
         />
       )}
 
@@ -598,7 +576,17 @@ export default function App() {
           onUpdated={() =>
             pushToast({
               type: 'synced',
-              message: 'Transaction updated!',
+              message: 'Transaction updated.',
+            })
+          }
+          onDeleted={(deletedTx) =>
+            pushToast({
+              type: 'synced',
+              message: `Deleted ${deletedTx.merchant} (${formatCurrency(
+                deletedTx.amount,
+                deletedTx.currency || currency
+              )})`,
+              undoTransaction: deletedTx,
             })
           }
         />
