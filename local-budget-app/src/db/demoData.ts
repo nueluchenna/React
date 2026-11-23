@@ -104,7 +104,7 @@ export function generateSyntheticReceiptDataUrl(params: {
     ctx.fillStyle = '#64748b';
     ctx.textAlign = 'center';
     ctx.fillText('THANK YOU FOR YOUR PURCHASE!', width / 2, y);
-    ctx.fillText('Captured with SpendeeAI Local-First PWA', width / 2, y + 20);
+    ctx.fillText('Captured with Manni Local-First PWA', width / 2, y + 20);
 
     return canvas.toDataURL('image/jpeg', 0.78);
   } catch {

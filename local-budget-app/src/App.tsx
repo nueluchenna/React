@@ -255,10 +255,10 @@ export default function App() {
           {/* Brand */}
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">
-              S
+              M
             </div>
             <span className="font-bold text-slate-900 text-base tracking-tight">
-              Spendee<span className="text-emerald-600">AI</span>
+              Manni
             </span>
           </div>
 

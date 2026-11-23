@@ -902,7 +902,7 @@ export async function generateAIFinancialCoachAdvice(summary: {
   const apiKey = await getSetting<string>('geminiApiKey', '');
   const modelName = await getSetting<string>('geminiModel', 'gemini-2.5-flash');
 
-  const coachPrompt = `You are SpendeeAI's Deep Financial Coach. Analyze this user's anonymized spending summary for ${summary.periodLabel}:
+  const coachPrompt = `You are Manni's Deep Financial Coach. Analyze this user's anonymized spending summary for ${summary.periodLabel}:
 - Currency: ${summary.currency}
 - Total Spent: ${summary.totalSpent.toFixed(2)} (Monthly Budget Target: ${summary.monthlyBudget.toFixed(2)})
 - Weekend vs Weekday Daily Spend Ratio: ${summary.weekendVsWeekdayRatio.toFixed(2)}x
@@ -1043,7 +1043,7 @@ Include exactly 3 savingTips.`;
           : 'Use the 48-Hour Rule for Non-Essential Purchases',
         estimatedMonthlySavings: `${cur} ${Math.max(20, (groceries?.amount || secondCat?.amount || 140) * 0.15).toFixed(0)}/mo`,
         action: groceries
-          ? `Review your itemized grocery receipts in SpendeeAI — consolidating into 1 planned weekly basket typically cuts impulse add-ons by 15%.`
+          ? `Review your itemized grocery receipts in Manni — consolidating into 1 planned weekly basket typically cuts impulse add-ons by 15%.`
           : `Waiting 48 hours before completing non-essential purchases reduces impulse checkout totals by 15-20%.`,
       },
       {

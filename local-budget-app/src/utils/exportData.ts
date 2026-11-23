@@ -53,7 +53,7 @@ export function exportSummaryCSV(transactions: Transaction[]): void {
   const csvBody = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
   const bomCsv = '\uFEFF' + csvBody;
   const dateStamp = new Date().toISOString().split('T')[0];
-  triggerFileDownload(bomCsv, `SpendeeAI_Summary_${dateStamp}.csv`, 'text/csv;charset=utf-8;');
+  triggerFileDownload(bomCsv, `Manni_Summary_${dateStamp}.csv`, 'text/csv;charset=utf-8;');
 }
 
 /**
@@ -108,11 +108,11 @@ export function exportItemizedCSV(transactions: Transaction[]): void {
   const csvBody = [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
   const bomCsv = '\uFEFF' + csvBody;
   const dateStamp = new Date().toISOString().split('T')[0];
-  triggerFileDownload(bomCsv, `SpendeeAI_Itemized_LineItems_${dateStamp}.csv`, 'text/csv;charset=utf-8;');
+  triggerFileDownload(bomCsv, `Manni_Itemized_LineItems_${dateStamp}.csv`, 'text/csv;charset=utf-8;');
 }
 
 export interface FullDatabaseBackup {
-  app: 'SpendeeAI';
+  app: 'Manni' | 'SpendeeAI';
   version: number;
   exportedAt: string;
   transactions: Transaction[];
@@ -134,7 +134,7 @@ export async function exportFullBackupJSON(): Promise<void> {
   ]);
 
   const payload: FullDatabaseBackup = {
-    app: 'SpendeeAI',
+    app: 'Manni',
     version: 1,
     exportedAt: new Date().toISOString(),
     transactions,
@@ -145,7 +145,7 @@ export async function exportFullBackupJSON(): Promise<void> {
 
   const jsonString = JSON.stringify(payload, null, 2);
   const dateStamp = new Date().toISOString().split('T')[0];
-  triggerFileDownload(jsonString, `SpendeeAI_Backup_${dateStamp}.json`, 'application/json');
+  triggerFileDownload(jsonString, `Manni_Backup_${dateStamp}.json`, 'application/json');
 }
 
 export async function importFullBackupJSON(file: File): Promise<{
@@ -156,7 +156,7 @@ export async function importFullBackupJSON(file: File): Promise<{
   const parsed = JSON.parse(text) as Partial<FullDatabaseBackup>;
 
   if (!parsed || !Array.isArray(parsed.transactions)) {
-    throw new Error('Invalid SpendeeAI backup file: missing transactions array.');
+    throw new Error('Invalid Manni backup file: missing transactions array.');
   }
 
   await db.transaction(

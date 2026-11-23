@@ -197,7 +197,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     onShowToast(
       granted
         ? 'Persistent Storage granted! Your browser will protect IndexedDB from automatic eviction.'
-        : 'Browser kept standard storage mode. Install SpendeeAI as a PWA or save periodic JSON backups.'
+        : 'Browser kept standard storage mode. Install Manni as a PWA or save periodic JSON backups.'
     );
   };
 

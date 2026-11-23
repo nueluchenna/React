@@ -11,9 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
-        name: 'SpendeeAI — Offline Expense & Receipt Tracker',
-        short_name: 'SpendeeAI',
-        description: '100% free, local-first PWA expense & AI receipt tracker inspired by Spendee',
+        name: 'Manni — Offline Expense & Receipt Tracker',
+        short_name: 'Manni',
+        description: '100% free, local-first PWA expense & AI receipt tracker',
         theme_color: '#10b981',
         background_color: '#f8fafc',
         display: 'standalone',
