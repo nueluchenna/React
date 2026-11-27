@@ -332,7 +332,23 @@ export async function extractReceiptSmart(
         };
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
-        console.warn('OpenRouter extraction failed, falling back to local OCR:', reason);
+        console.warn('OpenRouter extraction failed:', reason);
+        // Smart cross-provider fallback: if OpenRouter is 429 rate-limited and user also saved a Groq key, use Groq!
+        const backupGroqKey =
+          groqApiKey.trim() || (geminiApiKey.trim().startsWith('gsk_') ? geminiApiKey.trim() : '');
+        if (backupGroqKey.length > 10) {
+          try {
+            return await parseReceiptWithGroq(
+              imageDataUrl,
+              backupGroqKey,
+              groqModel,
+              defaultCurrency,
+              options?.onProgress
+            );
+          } catch (groqErr) {
+            console.warn('Backup Groq extraction also failed:', groqErr);
+          }
+        }
         return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress, reason);
       }
     }

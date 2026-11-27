@@ -321,20 +321,23 @@ CRITICAL RULES:
 5. Strip leading 5-6 digit SKU codes. NEVER invent fake "Miscellaneous" filler items.
 6. Return ONLY raw JSON with no markdown fences or commentary.`;
 
-  // Build candidate model list: requested model first, plus fast live :free vision fallbacks
+  // Respect explicit model selection! Only auto-fallback across multiple :free models
+  // when the user selected the automatic router (`openrouter/free`).
   const candidates: string[] = [targetModel];
-  try {
-    const liveFree = await fetchOpenRouterFreeVisionModels();
-    for (const m of liveFree) {
-      if (m !== targetModel && m !== DEFAULT_OPENROUTER_MODEL && candidates.length < 3) {
-        candidates.push(m);
+  if (targetModel === DEFAULT_OPENROUTER_MODEL) {
+    try {
+      const liveFree = await fetchOpenRouterFreeVisionModels();
+      for (const m of liveFree) {
+        if (m !== DEFAULT_OPENROUTER_MODEL && candidates.length < 5) {
+          candidates.push(m);
+        }
       }
+    } catch {
+      // ignore catalog fetch errors
     }
-  } catch {
-    // ignore catalog fetch errors
   }
 
-  let lastError: Error | null = null;
+  const errors: string[] = [];
   let winner: { jsonText: string; actualModel: string } | null = null;
 
   for (const candidate of candidates) {
@@ -344,17 +347,22 @@ CRITICAL RULES:
         apiKey: params.apiKey,
         model: candidate,
         systemPrompt,
-        timeoutMs: 22000,
+        timeoutMs: 25000,
       });
       break;
     } catch (err) {
-      lastError = err instanceof Error ? err : new Error(String(err));
-      console.warn(`OpenRouter candidate "${candidate}" failed:`, lastError.message);
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(msg);
+      console.warn(`OpenRouter candidate "${candidate}" failed:`, msg);
     }
   }
 
   if (!winner) {
-    throw lastError || new Error('All OpenRouter free vision models failed to respond.');
+    throw new Error(
+      errors.length === 1
+        ? errors[0]
+        : `All OpenRouter free models failed (${errors.length} tried). First error: ${errors[0]}`
+    );
   }
 
   const parsed = JSON.parse(winner.jsonText);
