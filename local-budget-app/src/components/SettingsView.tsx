@@ -571,16 +571,36 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600 space-y-1.5">
-          <div className="font-semibold text-slate-800">
-            What could clear ("drain") local browser data?
+        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600 space-y-2">
+          <div>
+            <div className="font-semibold text-slate-800 mb-1">
+              Privacy & Third-Party AI Notice
+            </div>
+            <ul className="list-disc pl-4 space-y-0.5">
+              <li>
+                <strong>Local-only database:</strong> Your transactions, budgets, and receipt photos stay inside this browser&apos;s IndexedDB and are never stored on a Manni server.
+              </li>
+              <li>
+                <strong>AI receipt scanning:</strong> When Groq or Gemini is enabled, receipt images/OCR text are sent directly from your browser to your chosen AI provider. Use <strong>Local OCR</strong> or manual entry for 100% on-device processing.
+              </li>
+              <li>
+                <strong>Safe backups &amp; shared devices:</strong> JSON backups automatically exclude your API keys. Avoid using Manni on public or shared browser profiles.
+              </li>
+            </ul>
           </div>
-          <ul className="list-disc pl-4 space-y-0.5">
-            <li>Manually clicking "Clear Site Data / Cookies" in your browser settings.</li>
-            <li>Using Incognito / Private Browsing mode (wiped when the tab closes).</li>
-            <li>On iOS Safari: not opening the site for 7+ days unless installed to your Home Screen as a PWA.</li>
-            <li>Switching devices or uninstalling the browser.</li>
-          </ul>
+
+          <div className="pt-2 border-t border-slate-200/70">
+            <div className="font-semibold text-slate-800 mb-1">
+              What could clear local browser data?
+            </div>
+            <ul className="list-disc pl-4 space-y-0.5">
+              <li>Manually clicking &quot;Clear Site Data / Cookies&quot; in your browser settings.</li>
+              <li>Using Incognito / Private Browsing mode (wiped when the tab closes).</li>
+              <li>On iOS Safari: not opening the site for 7+ days unless installed to your Home Screen as a PWA.</li>
+              <li>Switching devices, browsers, or uninstalling the browser.</li>
+            </ul>
+          </div>
+
           <div className="pt-1 text-slate-500">
             {lastBackupAt
               ? `Last voluntary JSON backup: ${new Date(lastBackupAt).toLocaleString()}`
@@ -600,7 +620,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span>Save JSON Backup</span>
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5">
-                Voluntary full backup (all receipts & images)
+                All receipts & images (API keys excluded for safety)
               </p>
             </div>
             <Download className="w-4 h-4 text-slate-400" />

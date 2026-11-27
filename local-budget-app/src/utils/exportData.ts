@@ -121,17 +121,22 @@ export interface FullDatabaseBackup {
   settings: AppSetting[];
 }
 
+const SENSITIVE_SETTING_KEYS = new Set(['geminiApiKey', 'groqApiKey']);
+
 /**
  * 3. Full JSON Backup & Restore
- * Exports entire IndexedDB state to a .json file and imports it back on any device.
+ * Exports entire IndexedDB state to a .json file (excluding secret API keys) and imports it back on any device.
  */
 export async function exportFullBackupJSON(): Promise<void> {
-  const [transactions, pendingReceipts, budgets, settings] = await Promise.all([
+  const [transactions, pendingReceipts, budgets, rawSettings] = await Promise.all([
     db.transactions.toArray(),
     db.pendingReceipts.toArray(),
     db.budgets.toArray(),
     db.settings.toArray(),
   ]);
+
+  // Never include secret API keys in exported backup files
+  const safeSettings = rawSettings.filter((s) => !SENSITIVE_SETTING_KEYS.has(s.key));
 
   const payload: FullDatabaseBackup = {
     app: 'Manni',
@@ -140,7 +145,7 @@ export async function exportFullBackupJSON(): Promise<void> {
     transactions,
     pendingReceipts,
     budgets,
-    settings,
+    settings: safeSettings,
   };
 
   const jsonString = JSON.stringify(payload, null, 2);
