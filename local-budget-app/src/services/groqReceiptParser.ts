@@ -174,9 +174,9 @@ export async function parseReceiptTextWithGroq(params: {
   ]
 }
 CRITICAL RULES FOR EUROPEAN & OCR RECEIPTS:
-1. Category: Supermarkets and grocery stores (Aldi, Aldi Süd, Lidl, REWE, EDEKA, Kaufland, Netto, Penny, Carrefour, Tesco, BioMarkt, etc.) MUST ALWAYS be categorized as "Groceries" (never "Shopping").
-2. Total: Look for "ALDI PREIS" (or OCR typo "ALDY PREIS"), "SUMME", "zu zahlen", "Kartenzahlung" (or typo "Kartenzahiung"), or "TOTAL". Ignore garbled VAT/MwSt lines when determining totalAmount.
-3. Dropped commas in OCR: OCR often drops decimal commas before tax letters A/B/4 (e.g., "179A" = 1.79, "378A" = 3.78 or 3.75, "1,19 4" = 1.19). Reconstruct EVERY purchased item so the sum of lineItems[].totalPrice matches totalAmount as closely as possible!
+1. Merchant & Category: Supermarkets and grocery stores (Aldi, Aldi Süd, Lidl, REWE, EDEKA, Kaufland, Netto, Penny, Carrefour, Tesco, BioMarkt, etc.) MUST ALWAYS be categorized as "Groceries" (never "Shopping" or "Food & Drink"). Recognize universal store clues like "Lidl Plus" / "Lid] Plus" / "LDL-" -> merchant "Lidl". NEVER use a street address (Str., Straße, postal code) as the merchant name.
+2. Total: Look for "ALDI PREIS" (or OCR typo "ALDY PREIS"), "SUMME" / "sume", "zu zahlen", "Kreditkarte" / "Kreditkurte", "Kartenzahlung" / "Kartenzahiung", or "TOTAL". Ignore garbled VAT/MwSt lines when determining totalAmount.
+3. Dropped commas in OCR: OCR often drops decimal commas before tax letters A/B/4 (e.g., "179A" = 1.79, "378A" = 3.78 or 3.75, "1,19 4" = 1.19). NEVER invent fake "Miscellaneous" filler items to force the sum to match.
 4. Multi-quantity lines: If a line like "3 x 0,79 =" appears right above an item like "202835 Hummus 200 g 2,37 A", combine them into ONE item with quantity: 3, unitPrice: 0.79, totalPrice: 2.37.
 5. Clean item names: Strip leading 5-6 digit product/SKU numbers (like "434767", "202835") and fix minor OCR spelling errors.`;
 

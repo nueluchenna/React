@@ -158,8 +158,10 @@ export async function processSinglePendingReceipt(
     );
 
     const engineTag =
-      extracted.extractionEngine === 'groq'
-        ? 'Groq Vision'
+      extracted.extractionEngine === 'openrouter'
+        ? 'OpenRouter Vision'
+        : extracted.extractionEngine === 'groq'
+        ? 'Groq AI'
         : extracted.extractionEngine === 'gemini'
         ? 'Gemini AI'
         : 'Local OCR';

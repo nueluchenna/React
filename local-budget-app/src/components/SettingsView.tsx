@@ -32,9 +32,12 @@ import {
 import { availableSyncAdapters } from '../services/syncAdapter';
 import {
   DEFAULT_GROQ_MODEL,
+  DEFAULT_OPENROUTER_MODEL,
   fetchGroqModels,
+  fetchOpenRouterFreeVisionModels,
   testGeminiApiKey,
   testGroqApiKey,
+  testOpenRouterApiKey,
   type AIProvider,
 } from '../services/aiReceiptParser';
 
@@ -57,7 +60,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onLoadDemoData,
   onShowToast,
 }) => {
-  const [provider, setProvider] = useState<AIProvider>('groq');
+  const [provider, setProvider] = useState<AIProvider>('openrouter');
+  const [openRouterApiKey, setOpenRouterApiKey] = useState('');
+  const [openRouterModel, setOpenRouterModel] = useState(DEFAULT_OPENROUTER_MODEL);
+  const [liveOpenRouterModels, setLiveOpenRouterModels] = useState<string[]>([
+    DEFAULT_OPENROUTER_MODEL,
+  ]);
+  const [loadingOpenRouterModels, setLoadingOpenRouterModels] = useState(false);
+
   const [groqApiKey, setGroqApiKey] = useState('');
   const [groqModel, setGroqModel] = useState(DEFAULT_GROQ_MODEL);
   const [liveGroqModels, setLiveGroqModels] = useState<string[]>([
@@ -84,15 +94,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   useEffect(() => {
     void (async () => {
-      const [p, gk, gm, k, m, backupTs] = await Promise.all([
-        getSetting<AIProvider>('aiProvider', 'groq'),
+      const [p, ork, orm, gk, gm, k, m, backupTs] = await Promise.all([
+        getSetting<AIProvider>('aiProvider', 'openrouter'),
+        getSetting<string>('openRouterApiKey', ''),
+        getSetting<string>('openRouterModel', DEFAULT_OPENROUTER_MODEL),
         getSetting<string>('groqApiKey', ''),
         getSetting<string>('groqModel', DEFAULT_GROQ_MODEL),
         getSetting<string>('geminiApiKey', ''),
         getSetting<string>('geminiModel', 'gemini-2.5-flash'),
         getSetting<string | null>('lastBackupAt', null),
       ]);
-      // Auto-migrate retired Llama 4 IDs to active Groq default
       const migratedGroqModel =
         gm === 'meta-llama/llama-4-maverick-17b-128e-instruct' ||
         gm === 'meta-llama/llama-4-scout-17b-16e-instruct'
@@ -100,6 +111,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           : gm;
 
       setProvider(p);
+      setOpenRouterApiKey(ork);
+      setOpenRouterModel(orm || DEFAULT_OPENROUTER_MODEL);
       setGroqApiKey(gk);
       setGroqModel(migratedGroqModel);
       if (migratedGroqModel !== gm) {
@@ -131,13 +144,41 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleSaveAISettings = async (e: React.FormEvent) => {
     e.preventDefault();
     await setSetting('aiProvider', provider);
+    await setSetting('openRouterApiKey', openRouterApiKey.trim());
+    await setSetting('openRouterModel', openRouterModel.trim() || DEFAULT_OPENROUTER_MODEL);
     await setSetting('groqApiKey', groqApiKey.trim());
     await setSetting('groqModel', groqModel);
     await setSetting('geminiApiKey', apiKey.trim());
     await setSetting('geminiModel', model);
     setKeyTestResult(null);
     onSettingsChanged();
-    onShowToast(`${provider === 'groq' ? 'Groq Vision' : 'Gemini'} settings saved locally.`);
+    const label =
+      provider === 'openrouter'
+        ? 'OpenRouter Free Vision'
+        : provider === 'groq'
+        ? 'Groq'
+        : 'Gemini';
+    onShowToast(`${label} settings saved locally.`);
+  };
+
+  const handleRefreshOpenRouterModels = async () => {
+    setLoadingOpenRouterModels(true);
+    try {
+      const models = await fetchOpenRouterFreeVisionModels();
+      if (models.length > 0) {
+        setLiveOpenRouterModels(models);
+        if (!models.includes(openRouterModel)) {
+          setOpenRouterModel(models[0]);
+        }
+        onShowToast(`Loaded ${models.length} free OpenRouter vision option(s).`);
+      }
+    } catch (err) {
+      onShowToast(
+        err instanceof Error ? err.message : 'Could not fetch OpenRouter free vision models.'
+      );
+    } finally {
+      setLoadingOpenRouterModels(false);
+    }
   };
 
   const handleRefreshGroqModels = async () => {
@@ -166,13 +207,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setKeyTestResult(null);
     try {
       await setSetting('aiProvider', provider);
+      await setSetting('openRouterApiKey', openRouterApiKey.trim());
+      await setSetting('openRouterModel', openRouterModel.trim() || DEFAULT_OPENROUTER_MODEL);
       await setSetting('groqApiKey', groqApiKey.trim());
       await setSetting('groqModel', groqModel.trim());
       await setSetting('geminiApiKey', apiKey.trim());
       await setSetting('geminiModel', model);
       onSettingsChanged();
 
-      if (provider === 'groq') {
+      if (provider === 'openrouter') {
+        const res = await testOpenRouterApiKey(
+          openRouterApiKey.trim(),
+          openRouterModel.trim()
+        );
+        if (res.availableModels && res.availableModels.length > 0) {
+          setLiveOpenRouterModels(res.availableModels);
+        }
+        setKeyTestResult({ ok: res.ok, message: res.message });
+      } else if (provider === 'groq') {
         const res = await testGroqApiKey(groqApiKey.trim(), groqModel.trim());
         if (res.availableModels && res.availableModels.length > 0) {
           setLiveGroqModels(res.availableModels);
@@ -269,11 +321,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const activeKeyValue = provider === 'groq' ? groqApiKey : apiKey;
+  const activeKeyValue =
+    provider === 'openrouter'
+      ? openRouterApiKey
+      : provider === 'groq'
+      ? groqApiKey
+      : apiKey;
   const detectedKeyType =
-    provider === 'groq'
+    provider === 'openrouter'
+      ? openRouterApiKey.trim().length > 10
+        ? 'OpenRouter Free Vision'
+        : 'OpenRouter (No Key)'
+      : provider === 'groq'
       ? groqApiKey.trim().length > 10
-        ? 'Groq Vision Active'
+        ? 'Groq Active'
         : 'Groq (No Key)'
       : apiKey.trim().startsWith('AQ.')
       ? 'Vertex AI Express (AQ...)'
@@ -298,7 +359,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 AI Receipt Extraction Provider
               </h3>
               <p className="text-xs text-slate-500">
-                Choose Groq (free Llama 4 Vision) or Google Gemini
+                OpenRouter (Free Direct Vision, no card), Groq, or Google Gemini
               </p>
             </div>
           </div>
@@ -308,20 +369,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {/* Provider Toggle */}
-        <div className="inline-flex rounded-xl bg-slate-100 p-1 text-xs font-medium">
+        <div className="inline-flex flex-wrap rounded-xl bg-slate-100 p-1 text-xs font-medium gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              setProvider('openrouter');
+              setKeyTestResult(null);
+            }}
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+              provider === 'openrouter'
+                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
+                : 'text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            OpenRouter (Free Vision)
+          </button>
           <button
             type="button"
             onClick={() => {
               setProvider('groq');
               setKeyTestResult(null);
             }}
-            className={`px-3.5 py-1.5 rounded-lg transition cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
               provider === 'groq'
                 ? 'bg-white text-slate-900 shadow-2xs font-semibold'
                 : 'text-slate-500 hover:text-slate-900'
             }`}
           >
-            Groq Vision (Free Tier)
+            Groq (OCR → LLM)
           </button>
           <button
             type="button"
@@ -329,7 +404,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               setProvider('gemini');
               setKeyTestResult(null);
             }}
-            className={`px-3.5 py-1.5 rounded-lg transition cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
               provider === 'gemini'
                 ? 'bg-white text-slate-900 shadow-2xs font-semibold'
                 : 'text-slate-500 hover:text-slate-900'
@@ -339,7 +414,60 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
         </div>
 
-        {provider === 'groq' ? (
+        {provider === 'openrouter' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-slate-600 mb-1">
+                OpenRouter API Key (free at openrouter.ai/keys — no credit card)
+              </label>
+              <input
+                type="password"
+                value={openRouterApiKey}
+                onChange={(e) => {
+                  setOpenRouterApiKey(e.target.value);
+                  setKeyTestResult(null);
+                }}
+                placeholder="sk-or-v1-..."
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-600"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-slate-600 flex items-center gap-1">
+                  <Cpu className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Free Vision Model</span>
+                </label>
+                <button
+                  type="button"
+                  disabled={loadingOpenRouterModels}
+                  onClick={handleRefreshOpenRouterModels}
+                  className="text-[11px] font-medium text-emerald-700 hover:underline disabled:opacity-40 cursor-pointer"
+                >
+                  {loadingOpenRouterModels ? 'Loading...' : 'Load Free Models'}
+                </button>
+              </div>
+              <select
+                value={
+                  liveOpenRouterModels.includes(openRouterModel)
+                    ? openRouterModel
+                    : liveOpenRouterModels[0]
+                }
+                onChange={(e) => {
+                  setOpenRouterModel(e.target.value);
+                  setKeyTestResult(null);
+                }}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:border-emerald-600"
+              >
+                {liveOpenRouterModels.map((m) => (
+                  <option key={m} value={m}>
+                    {m === 'openrouter/free' ? 'openrouter/free (Auto Free Vision)' : m}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : provider === 'groq' ? (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-slate-600 mb-1">

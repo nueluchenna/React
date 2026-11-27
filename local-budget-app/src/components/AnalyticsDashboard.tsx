@@ -648,7 +648,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           <div className="rounded-xl bg-slate-900 text-white p-5 space-y-4">
             <div>
               <span className="text-[11px] font-medium text-emerald-400 uppercase tracking-wider">
-                {coachAdvice.source === 'groq'
+                {coachAdvice.source === 'openrouter'
+                  ? 'OpenRouter Financial Coach'
+                  : coachAdvice.source === 'groq'
                   ? 'Groq Financial Coach'
                   : coachAdvice.source === 'gemini'
                   ? 'Gemini Financial Coach'

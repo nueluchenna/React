@@ -271,6 +271,8 @@ db.version(1).stores({
 // LocalStorage + IndexedDB settings helpers
 export const LS_KEYS = {
   AI_PROVIDER: 'spendeeai_ai_provider',
+  OPENROUTER_API_KEY: 'spendeeai_openrouter_api_key',
+  OPENROUTER_MODEL: 'spendeeai_openrouter_model',
   GEMINI_API_KEY: 'spendeeai_gemini_api_key',
   GEMINI_MODEL: 'spendeeai_gemini_model',
   GROQ_API_KEY: 'spendeeai_groq_api_key',
@@ -290,6 +292,8 @@ export async function getSetting<T>(key: string, defaultValue: T): Promise<T> {
   }
   const lsMap: Record<string, string> = {
     aiProvider: LS_KEYS.AI_PROVIDER,
+    openRouterApiKey: LS_KEYS.OPENROUTER_API_KEY,
+    openRouterModel: LS_KEYS.OPENROUTER_MODEL,
     geminiApiKey: LS_KEYS.GEMINI_API_KEY,
     geminiModel: LS_KEYS.GEMINI_MODEL,
     groqApiKey: LS_KEYS.GROQ_API_KEY,
@@ -306,6 +310,8 @@ export async function setSetting<T>(key: string, value: T): Promise<void> {
   await db.settings.put({ key, value });
   const lsMap: Record<string, string> = {
     aiProvider: LS_KEYS.AI_PROVIDER,
+    openRouterApiKey: LS_KEYS.OPENROUTER_API_KEY,
+    openRouterModel: LS_KEYS.OPENROUTER_MODEL,
     geminiApiKey: LS_KEYS.GEMINI_API_KEY,
     geminiModel: LS_KEYS.GEMINI_MODEL,
     groqApiKey: LS_KEYS.GROQ_API_KEY,

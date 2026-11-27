@@ -43,11 +43,11 @@ export function parseOCRTextWithRegex(
   else if (rawText.includes('£') || /\bGBP\b/i.test(rawText)) currency = 'GBP';
   else if (rawText.includes('$') || /\bUSD\b/i.test(rawText)) currency = 'USD';
 
-  // 2. Detect Merchant Name
+  // 2. Detect Merchant Name (universal store cues + skip street addresses/postal codes)
   let merchant = 'Scanned Receipt';
   const knownMerchants = [
-    { pattern: /\blidl\b/i, name: 'Lidl' },
-    { pattern: /\baldi\b/i, name: 'Aldi' },
+    { pattern: /\blid[l1\]i]\b|\blid[l1\]i]\s*plus\b|\bLDL-\d+/i, name: 'Lidl' },
+    { pattern: /\baldi\b|\baldy\s*preis/i, name: 'Aldi' },
     { pattern: /\brewe\b/i, name: 'REWE' },
     { pattern: /\bedeka\b/i, name: 'EDEKA' },
     { pattern: /\bkaufland\b/i, name: 'Kaufland' },
@@ -67,8 +67,12 @@ export function parseOCRTextWithRegex(
   } else {
     for (const line of lines.slice(0, 6)) {
       const clean = line.replace(/[^a-zA-Z0-9\s&'.-]/g, '').trim();
+      const looksLikeAddress =
+        /\b(str\.|stf\.|straße|strasse|street|weg|platz|allee|ave|rd)\b/i.test(clean) ||
+        /\b\d{5}\b/.test(clean);
       if (
         clean.length >= 3 &&
+        !looksLikeAddress &&
         !/^(date|datum|time|zeit|receipt|bon|beleg|tel|phone|tax|vat|mwst|ust|invoice|welcome|thank|eur)/i.test(
           clean
         ) &&

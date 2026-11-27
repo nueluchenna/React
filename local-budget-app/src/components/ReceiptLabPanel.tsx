@@ -16,11 +16,22 @@ import { parseOCRTextWithRegex, type RegexParsedReceipt } from '../services/rege
 import {
   DEFAULT_GROQ_MODEL,
   parseReceiptTextWithGroq,
-  type GroqParsedReceipt,
 } from '../services/groqReceiptParser';
+import {
+  DEFAULT_OPENROUTER_MODEL,
+  parseReceiptWithOpenRouter,
+} from '../services/openRouterReceiptParser';
+import type { AIProvider } from '../services/aiReceiptParser';
 
 interface ReceiptLabPanelProps {
   initialImageDataUrl?: string;
+}
+
+interface Stage3LabResult {
+  providerLabel: string;
+  modeLabel: string;
+  durationMs: number;
+  data: Record<string, unknown>;
 }
 
 export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
@@ -34,8 +45,8 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
 
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [regexResult, setRegexResult] = useState<RegexParsedReceipt | null>(null);
-  const [groqResult, setGroqResult] = useState<GroqParsedReceipt | null>(null);
-  const [groqError, setGroqError] = useState<string | null>(null);
+  const [aiResult, setAiResult] = useState<Stage3LabResult | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,8 +55,8 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
     setImageDataUrl(compressed);
     setOcrResult(null);
     setRegexResult(null);
-    setGroqResult(null);
-    setGroqError(null);
+    setAiResult(null);
+    setAiError(null);
     e.target.value = '';
   };
 
@@ -55,8 +66,8 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
     setOcrProgress(0);
     setOcrResult(null);
     setRegexResult(null);
-    setGroqResult(null);
-    setGroqError(null);
+    setAiResult(null);
+    setAiError(null);
 
     try {
       // Stage 1: Isolated OCR (with preprocessing + cached worker)
@@ -68,12 +79,40 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
       const regexParsed = parseOCRTextWithRegex(ocr.rawText, defaultCurrency);
       setRegexResult(regexParsed);
 
-      // Stage 3: Isolated Groq Parser
+      // Stage 3: Isolated AI Parser (uses active provider: OpenRouter Direct Vision OR Groq)
+      const provider = await getSetting<AIProvider>('aiProvider', 'openrouter');
+      const openRouterKey = await getSetting<string>('openRouterApiKey', '');
+      const openRouterModel = await getSetting<string>('openRouterModel', DEFAULT_OPENROUTER_MODEL);
       const groqKey = await getSetting<string>('groqApiKey', '');
       const groqModel = await getSetting<string>('groqModel', DEFAULT_GROQ_MODEL);
-      if (!groqKey.trim()) {
-        setGroqError('No Groq API key saved in Settings yet.');
-      } else {
+
+      if (provider === 'openrouter' && openRouterKey.trim()) {
+        try {
+          const orParsed = await parseReceiptWithOpenRouter({
+            imageDataUrl,
+            apiKey: openRouterKey.trim(),
+            modelName: openRouterModel,
+            defaultCurrency,
+          });
+          setAiResult({
+            providerLabel: `OpenRouter (${orParsed.modelUsed})`,
+            modeLabel: 'direct_vision',
+            durationMs: orParsed.durationMs,
+            data: {
+              merchant: orParsed.merchant,
+              date: orParsed.date,
+              currency: orParsed.currency,
+              totalAmount: orParsed.totalAmount,
+              taxAmount: orParsed.taxAmount,
+              category: orParsed.category,
+              summaryNote: orParsed.summaryNote,
+              lineItems: orParsed.lineItems,
+            },
+          });
+        } catch (err) {
+          setAiError(err instanceof Error ? err.message : String(err));
+        }
+      } else if (groqKey.trim()) {
         try {
           const groqParsed = await parseReceiptTextWithGroq({
             rawOcrText: ocr.rawText,
@@ -82,10 +121,52 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
             modelName: groqModel,
             defaultCurrency,
           });
-          setGroqResult(groqParsed);
+          setAiResult({
+            providerLabel: `Groq (${groqParsed.modelUsed})`,
+            modeLabel: groqParsed.modeUsed,
+            durationMs: groqParsed.durationMs,
+            data: {
+              merchant: groqParsed.merchant,
+              date: groqParsed.date,
+              currency: groqParsed.currency,
+              totalAmount: groqParsed.totalAmount,
+              taxAmount: groqParsed.taxAmount,
+              category: groqParsed.category,
+              summaryNote: groqParsed.summaryNote,
+              lineItems: groqParsed.lineItems,
+            },
+          });
         } catch (err) {
-          setGroqError(err instanceof Error ? err.message : String(err));
+          setAiError(err instanceof Error ? err.message : String(err));
         }
+      } else if (openRouterKey.trim()) {
+        try {
+          const orParsed = await parseReceiptWithOpenRouter({
+            imageDataUrl,
+            apiKey: openRouterKey.trim(),
+            modelName: openRouterModel,
+            defaultCurrency,
+          });
+          setAiResult({
+            providerLabel: `OpenRouter (${orParsed.modelUsed})`,
+            modeLabel: 'direct_vision',
+            durationMs: orParsed.durationMs,
+            data: {
+              merchant: orParsed.merchant,
+              date: orParsed.date,
+              currency: orParsed.currency,
+              totalAmount: orParsed.totalAmount,
+              taxAmount: orParsed.taxAmount,
+              category: orParsed.category,
+              summaryNote: orParsed.summaryNote,
+              lineItems: orParsed.lineItems,
+            },
+          });
+        } catch (err) {
+          setAiError(err instanceof Error ? err.message : String(err));
+        }
+      } else {
+        setAiError('No OpenRouter or Groq API key saved in Settings yet.');
       }
     } finally {
       setRunning(false);
@@ -171,7 +252,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
       )}
 
       {/* 3 Isolated Output Columns */}
-      {(ocrResult || regexResult || groqResult || groqError) && (
+      {(ocrResult || regexResult || aiResult || aiError) && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 pt-1">
           {/* Stage 1: Raw OCR */}
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 flex flex-col">
@@ -209,42 +290,27 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
             </pre>
           </div>
 
-          {/* Stage 3: Groq Output */}
+          {/* Stage 3: AI Output (OpenRouter Vision or Groq) */}
           <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 flex flex-col">
-            <div className="flex items-center justify-between mb-2">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                <span>3. Groq Output</span>
+            <div className="flex items-center justify-between mb-2 gap-2">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800 truncate">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="truncate">3. {aiResult?.providerLabel || 'AI Output'}</span>
               </span>
-              {groqResult && (
-                <span className="text-[10px] font-mono text-slate-500">
-                  {groqResult.durationMs}ms • {groqResult.modeUsed}
+              {aiResult && (
+                <span className="text-[10px] font-mono text-slate-500 shrink-0">
+                  {aiResult.durationMs}ms • {aiResult.modeLabel}
                 </span>
               )}
             </div>
-            {groqError ? (
+            {aiError ? (
               <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-start gap-1.5">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span className="break-words">{groqError}</span>
+                <span className="break-words">{aiError}</span>
               </div>
             ) : (
               <pre className="text-[11px] font-mono text-slate-700 bg-white border border-slate-200 rounded-lg p-2.5 overflow-auto max-h-72 whitespace-pre-wrap">
-                {groqResult
-                  ? JSON.stringify(
-                      {
-                        merchant: groqResult.merchant,
-                        date: groqResult.date,
-                        currency: groqResult.currency,
-                        totalAmount: groqResult.totalAmount,
-                        taxAmount: groqResult.taxAmount,
-                        category: groqResult.category,
-                        summaryNote: groqResult.summaryNote,
-                        lineItems: groqResult.lineItems,
-                      },
-                      null,
-                      2
-                    )
-                  : '—'}
+                {aiResult ? JSON.stringify(aiResult.data, null, 2) : '—'}
               </pre>
             )}
           </div>

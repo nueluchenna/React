@@ -121,7 +121,7 @@ export interface FullDatabaseBackup {
   settings: AppSetting[];
 }
 
-const SENSITIVE_SETTING_KEYS = new Set(['geminiApiKey', 'groqApiKey']);
+const SENSITIVE_SETTING_KEYS = new Set(['geminiApiKey', 'groqApiKey', 'openRouterApiKey']);
 
 /**
  * 3. Full JSON Backup & Restore

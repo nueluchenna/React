@@ -16,10 +16,23 @@ import {
   parseReceiptTextWithGroq,
   isLikelyVisionModel,
 } from './groqReceiptParser';
+import {
+  DEFAULT_OPENROUTER_MODEL,
+  fetchOpenRouterFreeVisionModels,
+  testOpenRouterApiKey,
+  parseReceiptWithOpenRouter,
+} from './openRouterReceiptParser';
 
-export { DEFAULT_GROQ_MODEL, fetchGroqModels, testGroqApiKey };
+export {
+  DEFAULT_GROQ_MODEL,
+  fetchGroqModels,
+  testGroqApiKey,
+  DEFAULT_OPENROUTER_MODEL,
+  fetchOpenRouterFreeVisionModels,
+  testOpenRouterApiKey,
+};
 
-export type AIProvider = 'groq' | 'gemini';
+export type AIProvider = 'openrouter' | 'groq' | 'gemini';
 
 export interface ExtractedReceiptData {
   merchant: string;
@@ -30,7 +43,7 @@ export interface ExtractedReceiptData {
   category: SpendeeCategory;
   summaryNote: string;
   lineItems: LineItem[];
-  extractionEngine: 'gemini' | 'groq' | 'tesseract_fallback';
+  extractionEngine: 'openrouter' | 'gemini' | 'groq' | 'tesseract_fallback';
   fallbackReason?: string;
 }
 
@@ -42,7 +55,7 @@ export interface AICoachAdvice {
     estimatedMonthlySavings: string;
     action: string;
   }>;
-  source: 'gemini' | 'groq' | 'local_smart_coach';
+  source: 'openrouter' | 'gemini' | 'groq' | 'local_smart_coach';
 }
 
 function todayISO(): string {
@@ -278,7 +291,9 @@ export async function extractReceiptSmart(
     onProgress?: (progress: number) => void;
   }
 ): Promise<ExtractedReceiptData> {
-  const aiProvider = await getSetting<AIProvider>('aiProvider', 'groq');
+  const aiProvider = await getSetting<AIProvider>('aiProvider', 'openrouter');
+  const openRouterKey = await getSetting<string>('openRouterApiKey', '');
+  const openRouterModel = await getSetting<string>('openRouterModel', DEFAULT_OPENROUTER_MODEL);
   const groqApiKey = await getSetting<string>('groqApiKey', '');
   const groqModel = await getSetting<string>('groqModel', DEFAULT_GROQ_MODEL);
   const geminiApiKey = await getSetting<string>('geminiApiKey', '');
@@ -286,6 +301,42 @@ export async function extractReceiptSmart(
   const defaultCurrency = await getSetting<string>('defaultCurrency', 'EUR');
 
   if (!options?.forceLocalOCR) {
+    const effectiveOpenRouterKey =
+      openRouterKey.trim() ||
+      (groqApiKey.trim().startsWith('sk-or-') ? groqApiKey.trim() : '') ||
+      (geminiApiKey.trim().startsWith('sk-or-') ? geminiApiKey.trim() : '');
+
+    if (
+      (aiProvider === 'openrouter' ||
+        groqApiKey.trim().startsWith('sk-or-') ||
+        geminiApiKey.trim().startsWith('sk-or-')) &&
+      effectiveOpenRouterKey.length > 10
+    ) {
+      try {
+        const res = await parseReceiptWithOpenRouter({
+          imageDataUrl,
+          apiKey: effectiveOpenRouterKey,
+          modelName: openRouterModel,
+          defaultCurrency,
+        });
+        return {
+          merchant: res.merchant,
+          date: res.date,
+          currency: res.currency,
+          totalAmount: res.totalAmount,
+          taxAmount: res.taxAmount,
+          category: res.category,
+          summaryNote: res.summaryNote,
+          lineItems: res.lineItems,
+          extractionEngine: 'openrouter',
+        };
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        console.warn('OpenRouter extraction failed, falling back to local OCR:', reason);
+        return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress, reason);
+      }
+    }
+
     const effectiveGroqKey =
       groqApiKey.trim() || (geminiApiKey.trim().startsWith('gsk_') ? geminiApiKey.trim() : '');
 
@@ -311,6 +362,31 @@ export async function extractReceiptSmart(
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
         console.warn('Gemini extraction failed, falling back to local OCR:', reason);
+        return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress, reason);
+      }
+    }
+
+    if (effectiveOpenRouterKey.length > 10) {
+      try {
+        const res = await parseReceiptWithOpenRouter({
+          imageDataUrl,
+          apiKey: effectiveOpenRouterKey,
+          modelName: openRouterModel,
+          defaultCurrency,
+        });
+        return {
+          merchant: res.merchant,
+          date: res.date,
+          currency: res.currency,
+          totalAmount: res.totalAmount,
+          taxAmount: res.taxAmount,
+          category: res.category,
+          summaryNote: res.summaryNote,
+          lineItems: res.lineItems,
+          extractionEngine: 'openrouter',
+        };
+      } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
         return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress, reason);
       }
     }
@@ -348,7 +424,9 @@ export async function generateAIFinancialCoachAdvice(summary: {
   topMerchants: Array<{ merchant: string; amount: number; count: number }>;
   weekendVsWeekdayRatio: number;
 }): Promise<AICoachAdvice> {
-  const aiProvider = await getSetting<AIProvider>('aiProvider', 'groq');
+  const aiProvider = await getSetting<AIProvider>('aiProvider', 'openrouter');
+  const openRouterKey = await getSetting<string>('openRouterApiKey', '');
+  const openRouterModel = await getSetting<string>('openRouterModel', DEFAULT_OPENROUTER_MODEL);
   const groqApiKey = await getSetting<string>('groqApiKey', '');
   const groqModel = await getSetting<string>('groqModel', DEFAULT_GROQ_MODEL);
   const apiKey = await getSetting<string>('geminiApiKey', '');
@@ -370,6 +448,41 @@ Return a JSON object with:
   ]
 }
 Include exactly 3 savingTips.`;
+
+  if (aiProvider === 'openrouter' && openRouterKey.trim().length > 10) {
+    try {
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${openRouterKey.trim()}`,
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'Manni Expense Tracker',
+        },
+        body: JSON.stringify({
+          model: openRouterModel || DEFAULT_OPENROUTER_MODEL,
+          temperature: 0.3,
+          messages: [{ role: 'user', content: coachPrompt }],
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const raw: string = data?.choices?.[0]?.message?.content || '{}';
+        const cleaned = raw.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+        const parsed = JSON.parse(cleaned);
+        if (parsed.headline && Array.isArray(parsed.savingTips)) {
+          return {
+            headline: parsed.headline,
+            habitBreakdown: parsed.habitBreakdown || [],
+            savingTips: parsed.savingTips.slice(0, 3),
+            source: 'openrouter',
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('OpenRouter coach fallback:', err);
+    }
+  }
 
   if ((aiProvider === 'groq' || apiKey.trim().startsWith('gsk_')) && (groqApiKey.trim() || apiKey.trim()).length > 10) {
     try {
