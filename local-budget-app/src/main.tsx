@@ -12,6 +12,9 @@ window.addEventListener('vite:preloadError', () => {
     window.location.reload();
   }
 });
+setTimeout(() => {
+  sessionStorage.removeItem('manni_chunk_reload_once');
+}, 5000);
 
 // Cleanly reload once when a new Service Worker takes control
 if ('serviceWorker' in navigator) {

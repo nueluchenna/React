@@ -41,48 +41,47 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
     initialImageDataUrl || null
   );
   const [running, setRunning] = useState(false);
-  const [stageStatus, setStageStatus] = useState<string>('');
+  const [hasStartedRun, setHasStartedRun] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
 
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
+  const [ocrError, setOcrError] = useState<string | null>(null);
   const [regexResult, setRegexResult] = useState<RegexParsedReceipt | null>(null);
   const [aiResult, setAiResult] = useState<Stage3LabResult | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
 
+  const [fileError, setFileError] = useState<string | null>(null);
+
   const handleFilePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const compressed = await compressImageToDataUrl(file, 1400, 0.85, 4200);
-    setImageDataUrl(compressed);
-    setOcrResult(null);
-    setRegexResult(null);
-    setAiResult(null);
-    setAiError(null);
-    e.target.value = '';
+    setFileError(null);
+    try {
+      const compressed = await compressImageToDataUrl(file, 1400, 0.85, 4200);
+      setImageDataUrl(compressed);
+      setHasStartedRun(false);
+      setOcrResult(null);
+      setOcrError(null);
+      setRegexResult(null);
+      setAiResult(null);
+      setAiError(null);
+    } catch (err) {
+      setFileError(err instanceof Error ? err.message : 'Could not load receipt image.');
+    } finally {
+      e.target.value = '';
+    }
   };
 
-  const handleRunIsolatedStages = async () => {
-    if (!imageDataUrl) return;
-    setRunning(true);
-    setOcrProgress(0);
-    setOcrResult(null);
-    setRegexResult(null);
-    setAiResult(null);
+  const runAiStage = async (
+    imgUrl: string,
+    rawOcrText: string | undefined,
+    defaultCurrency: string
+  ) => {
+    setAiLoading(true);
     setAiError(null);
-
     try {
-      setStageStatus('Stage 1: Running OCR...');
-      const ocr = await runReceiptOCR(imageDataUrl, (pct) => {
-        setOcrProgress(pct);
-        setStageStatus(`Stage 1: OCR (${pct}%)`);
-      });
-      setOcrResult(ocr);
-
-      setStageStatus('Stage 2: Regex...');
-      const defaultCurrency = await getSetting<string>('defaultCurrency', 'EUR');
-      const regexParsed = parseOCRTextWithRegex(ocr.rawText, defaultCurrency);
-      setRegexResult(regexParsed);
-
       const provider = await getSetting<AIProvider>('aiProvider', 'openrouter');
       const openRouterKey = await getSetting<string>('openRouterApiKey', '');
       const openRouterModel = await getSetting<string>('openRouterModel', DEFAULT_OPENROUTER_MODEL);
@@ -90,93 +89,141 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
       const groqModel = await getSetting<string>('groqModel', DEFAULT_GROQ_MODEL);
 
       if (provider === 'openrouter' && openRouterKey.trim()) {
-        setStageStatus('Stage 3: Calling OpenRouter Vision...');
-        try {
-          const orParsed = await parseReceiptWithOpenRouter({
-            imageDataUrl,
-            apiKey: openRouterKey.trim(),
-            modelName: openRouterModel,
-            defaultCurrency,
-          });
-          setAiResult({
-            providerLabel: `OpenRouter (${orParsed.modelUsed})`,
-            modeLabel: 'direct_vision',
-            durationMs: orParsed.durationMs,
-            data: {
-              merchant: orParsed.merchant,
-              date: orParsed.date,
-              currency: orParsed.currency,
-              totalAmount: orParsed.totalAmount,
-              taxAmount: orParsed.taxAmount,
-              category: orParsed.category,
-              summaryNote: orParsed.summaryNote,
-              lineItems: orParsed.lineItems,
-            },
-          });
-        } catch (err) {
-          setAiError(err instanceof Error ? err.message : String(err));
-        }
+        const orParsed = await parseReceiptWithOpenRouter({
+          imageDataUrl: imgUrl,
+          apiKey: openRouterKey.trim(),
+          modelName: openRouterModel,
+          defaultCurrency,
+        });
+        setAiResult({
+          providerLabel: `OpenRouter (${orParsed.modelUsed})`,
+          modeLabel: 'direct_vision',
+          durationMs: orParsed.durationMs,
+          data: {
+            merchant: orParsed.merchant,
+            date: orParsed.date,
+            currency: orParsed.currency,
+            totalAmount: orParsed.totalAmount,
+            taxAmount: orParsed.taxAmount,
+            category: orParsed.category,
+            summaryNote: orParsed.summaryNote,
+            lineItems: orParsed.lineItems,
+          },
+        });
       } else if (groqKey.trim()) {
-        setStageStatus('Stage 3: Calling Groq...');
-        try {
-          const groqParsed = await parseReceiptTextWithGroq({
-            rawOcrText: ocr.rawText,
-            imageDataUrl,
-            apiKey: groqKey.trim(),
-            modelName: groqModel,
-            defaultCurrency,
-          });
-          setAiResult({
-            providerLabel: `Groq (${groqParsed.modelUsed})`,
-            modeLabel: groqParsed.modeUsed,
-            durationMs: groqParsed.durationMs,
-            data: {
-              merchant: groqParsed.merchant,
-              date: groqParsed.date,
-              currency: groqParsed.currency,
-              totalAmount: groqParsed.totalAmount,
-              taxAmount: groqParsed.taxAmount,
-              category: groqParsed.category,
-              summaryNote: groqParsed.summaryNote,
-              lineItems: groqParsed.lineItems,
-            },
-          });
-        } catch (err) {
-          setAiError(err instanceof Error ? err.message : String(err));
-        }
+        const groqParsed = await parseReceiptTextWithGroq({
+          rawOcrText: rawOcrText || '',
+          imageDataUrl: imgUrl,
+          apiKey: groqKey.trim(),
+          modelName: groqModel,
+          defaultCurrency,
+        });
+        setAiResult({
+          providerLabel: `Groq (${groqParsed.modelUsed})`,
+          modeLabel: groqParsed.modeUsed,
+          durationMs: groqParsed.durationMs,
+          data: {
+            merchant: groqParsed.merchant,
+            date: groqParsed.date,
+            currency: groqParsed.currency,
+            totalAmount: groqParsed.totalAmount,
+            taxAmount: groqParsed.taxAmount,
+            category: groqParsed.category,
+            summaryNote: groqParsed.summaryNote,
+            lineItems: groqParsed.lineItems,
+          },
+        });
       } else if (openRouterKey.trim()) {
-        setStageStatus('Stage 3: Calling OpenRouter Vision...');
-        try {
-          const orParsed = await parseReceiptWithOpenRouter({
-            imageDataUrl,
-            apiKey: openRouterKey.trim(),
-            modelName: openRouterModel,
-            defaultCurrency,
-          });
-          setAiResult({
-            providerLabel: `OpenRouter (${orParsed.modelUsed})`,
-            modeLabel: 'direct_vision',
-            durationMs: orParsed.durationMs,
-            data: {
-              merchant: orParsed.merchant,
-              date: orParsed.date,
-              currency: orParsed.currency,
-              totalAmount: orParsed.totalAmount,
-              taxAmount: orParsed.taxAmount,
-              category: orParsed.category,
-              summaryNote: orParsed.summaryNote,
-              lineItems: orParsed.lineItems,
-            },
-          });
-        } catch (err) {
-          setAiError(err instanceof Error ? err.message : String(err));
-        }
+        const orParsed = await parseReceiptWithOpenRouter({
+          imageDataUrl: imgUrl,
+          apiKey: openRouterKey.trim(),
+          modelName: openRouterModel,
+          defaultCurrency,
+        });
+        setAiResult({
+          providerLabel: `OpenRouter (${orParsed.modelUsed})`,
+          modeLabel: 'direct_vision',
+          durationMs: orParsed.durationMs,
+          data: {
+            merchant: orParsed.merchant,
+            date: orParsed.date,
+            currency: orParsed.currency,
+            totalAmount: orParsed.totalAmount,
+            taxAmount: orParsed.taxAmount,
+            category: orParsed.category,
+            summaryNote: orParsed.summaryNote,
+            lineItems: orParsed.lineItems,
+          },
+        });
       } else {
         setAiError('No OpenRouter or Groq API key saved in Settings yet.');
       }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleRunIsolatedStages = async (aiOnly = false) => {
+    if (!imageDataUrl) return;
+    setRunning(true);
+    setHasStartedRun(true);
+    setOcrProgress(0);
+    setAiResult(null);
+    setAiError(null);
+    if (!aiOnly) {
+      setOcrResult(null);
+      setOcrError(null);
+      setRegexResult(null);
+    }
+
+    try {
+      const defaultCurrency = await getSetting<string>('defaultCurrency', 'EUR');
+      const provider = await getSetting<AIProvider>('aiProvider', 'openrouter');
+      const openRouterKey = await getSetting<string>('openRouterApiKey', '');
+      const canRunDirectVisionInParallel =
+        provider === 'openrouter' && Boolean(openRouterKey.trim());
+
+      if (aiOnly) {
+        await runAiStage(imageDataUrl, ocrResult?.rawText, defaultCurrency);
+        return;
+      }
+
+      // If OpenRouter Direct Vision is active, launch Stage 3 immediately in parallel with Stage 1 OCR!
+      const parallelVisionPromise = canRunDirectVisionInParallel
+        ? runAiStage(imageDataUrl, undefined, defaultCurrency)
+        : null;
+
+      let extractedRawText = '';
+      setOcrLoading(true);
+      try {
+        const ocr = await runReceiptOCR(imageDataUrl, (pct) => setOcrProgress(pct));
+        extractedRawText = ocr.rawText;
+        setOcrResult(ocr);
+
+        const regexParsed = parseOCRTextWithRegex(ocr.rawText, defaultCurrency);
+        setRegexResult(regexParsed);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setOcrError(
+          msg.includes('Failed to fetch dynamically imported module')
+            ? 'App was just updated—refresh the page once to load the latest OCR worker.'
+            : msg
+        );
+      } finally {
+        setOcrLoading(false);
+      }
+
+      if (parallelVisionPromise) {
+        await parallelVisionPromise;
+      } else {
+        await runAiStage(imageDataUrl, extractedRawText, defaultCurrency);
+      }
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : String(err));
     } finally {
       setRunning(false);
-      setStageStatus('');
     }
   };
 
@@ -197,7 +244,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-[#E8EDE7] text-[#163300] font-semibold text-xs transition cursor-pointer">
             <Upload className="w-3.5 h-3.5" />
             <span>{imageDataUrl ? 'Change image' : 'Pick receipt'}</span>
@@ -212,7 +259,21 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
           <button
             type="button"
             disabled={!imageDataUrl || running}
-            onClick={() => void handleRunIsolatedStages()}
+            onClick={() => void handleRunIsolatedStages(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] disabled:opacity-40 text-[#163300] font-semibold text-xs transition cursor-pointer"
+          >
+            {aiLoading ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5" />
+            )}
+            <span>Test AI only</span>
+          </button>
+
+          <button
+            type="button"
+            disabled={!imageDataUrl || running}
+            onClick={() => void handleRunIsolatedStages(false)}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#163300] hover:bg-[#1F4403] disabled:opacity-40 text-white font-semibold text-xs transition cursor-pointer"
           >
             {running ? (
@@ -220,10 +281,23 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
             ) : (
               <Play className="w-3.5 h-3.5" />
             )}
-            <span>{running ? stageStatus || `Running (${ocrProgress}%)...` : 'Run 3-stage test'}</span>
+            <span>{running ? 'Running...' : 'Run 3-stage test'}</span>
           </button>
         </div>
       </div>
+
+      {fileError && (
+        <div className="p-3 rounded-2xl bg-[#FDECEC] text-xs text-[#A8200D] flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0" />
+          <span>{fileError}</span>
+        </div>
+      )}
+
+      {!imageDataUrl && (
+        <div className="rounded-2xl bg-white p-6 text-center text-xs text-[#6A6C6A]">
+          Tap <strong>Pick receipt</strong> above first to load a receipt image, then tap <strong>Test AI only</strong> or <strong>Run 3-stage test</strong>.
+        </div>
+      )}
 
       {imageDataUrl && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -250,15 +324,18 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
               />
             ) : (
               <div className="h-44 flex items-center justify-center text-xs text-[#868A84]">
-                Run test to preview preprocessed image
+                {ocrLoading
+                  ? `Running OCR (${ocrProgress}%)...`
+                  : 'Run 3-stage test to preview preprocessed OCR image'}
               </div>
             )}
           </div>
         </div>
       )}
 
-      {(ocrResult || regexResult || aiResult || aiError) && (
+      {hasStartedRun && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Stage 1: Raw OCR */}
           <div className="rounded-2xl bg-white p-4 flex flex-col">
             <div className="flex items-center justify-between mb-2.5">
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0E0F0C]">
@@ -271,11 +348,25 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
                 </span>
               )}
             </div>
-            <pre className="text-[11px] font-mono text-[#0E0F0C] bg-[#FAFBF9] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
-              {ocrResult?.rawText || '(empty OCR text)'}
-            </pre>
+
+            {ocrLoading ? (
+              <div className="p-6 text-center text-xs text-[#5D615C] flex flex-col items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-[#163300]" />
+                <span>Running Tesseract OCR ({ocrProgress}%)...</span>
+              </div>
+            ) : ocrError ? (
+              <div className="p-3 rounded-xl bg-[#FDECEC] text-xs text-[#A8200D] flex items-start gap-1.5">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span className="break-words">{ocrError}</span>
+              </div>
+            ) : (
+              <pre className="text-[11px] font-mono text-[#0E0F0C] bg-[#FAFBF9] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
+                {ocrResult ? ocrResult.rawText || '(empty OCR text)' : '(Skipped — AI only)'}
+              </pre>
+            )}
           </div>
 
+          {/* Stage 2: Regex */}
           <div className="rounded-2xl bg-white p-4 flex flex-col">
             <div className="flex items-center justify-between mb-2.5">
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0E0F0C]">
@@ -288,11 +379,18 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
                 </span>
               )}
             </div>
-            <pre className="text-[11px] font-mono text-[#0E0F0C] bg-[#FAFBF9] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
-              {regexResult ? JSON.stringify(regexResult, null, 2) : '—'}
-            </pre>
+            {ocrLoading ? (
+              <div className="p-6 text-center text-xs text-[#868A84]">
+                Waiting for Stage 1 OCR...
+              </div>
+            ) : (
+              <pre className="text-[11px] font-mono text-[#0E0F0C] bg-[#FAFBF9] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
+                {regexResult ? JSON.stringify(regexResult, null, 2) : '(Skipped — AI only)'}
+              </pre>
+            )}
           </div>
 
+          {/* Stage 3: AI Vision / LLM */}
           <div className="rounded-2xl bg-white p-4 flex flex-col">
             <div className="flex items-center justify-between mb-2.5 gap-2">
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0E0F0C] truncate">
@@ -305,7 +403,12 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
                 </span>
               )}
             </div>
-            {aiError ? (
+            {aiLoading ? (
+              <div className="p-6 text-center text-xs text-[#5D615C] flex flex-col items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-[#163300]" />
+                <span>Calling AI model...</span>
+              </div>
+            ) : aiError ? (
               <div className="p-3 rounded-xl bg-[#FDECEC] text-xs text-[#A8200D] flex items-start gap-1.5">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span className="break-words">{aiError}</span>

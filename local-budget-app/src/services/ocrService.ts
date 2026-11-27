@@ -152,8 +152,16 @@ export async function runReceiptOCR(
 
   progressCallback = onProgress || null;
   try {
-    const worker = await getReusableOCRWorker();
-    const res = await worker.recognize(preprocessedDataUrl);
+    let worker = await getReusableOCRWorker();
+    let res;
+    try {
+      res = await worker.recognize(preprocessedDataUrl);
+    } catch {
+      // Reset stale worker and retry once
+      cachedWorkerPromise = null;
+      worker = await getReusableOCRWorker();
+      res = await worker.recognize(preprocessedDataUrl);
+    }
     return {
       rawText: res.data.text || '',
       preprocessedDataUrl,

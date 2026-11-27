@@ -77,13 +77,16 @@ export async function fetchOpenRouterFreeVisionModels(): Promise<string[]> {
 
   const scoreModel = (id: string) => {
     const lower = id.toLowerCase();
-    if (lower.includes('gemma') && lower.includes('27b')) return 0;
-    if (lower.includes('gemma')) return 1;
+    // Prioritize fast, reliable multimodal models (Nemotron Omni / Super VL, Qwen VL, Mistral/Pixtral)
+    // and push frequently rate-limited Gemma & heavy reasoning models lower
+    if (lower.includes('nemotron') && lower.includes('nano')) return 0;
+    if (lower.includes('nemotron') && (lower.includes('vl') || lower.includes('omni'))) return 1;
     if (lower.includes('qwen') && lower.includes('vl')) return 2;
     if (lower.includes('mistral') || lower.includes('pixtral')) return 3;
     if (lower.includes('llama')) return 4;
-    if (lower.includes('nemotron')) return 5;
-    return 6;
+    if (lower.includes('gemma')) return 6;
+    if (lower.includes('particle') || lower.includes('thinking') || lower.includes('r1')) return 8;
+    return 5;
   };
 
   const freeVision = (data.data || [])
@@ -137,8 +140,8 @@ export async function testOpenRouterApiKey(
       body: JSON.stringify({
         model: targetModel,
         messages: [{ role: 'user', content: 'Reply with OK' }],
-        max_tokens: 16,
-        reasoning: { exclude: true },
+        max_tokens: 256,
+        reasoning: { effort: 'low' },
       }),
     });
 
@@ -201,9 +204,9 @@ async function callOpenRouterSingleModel(params: {
       body: JSON.stringify({
         model: params.model,
         temperature: 0.1,
-        max_tokens: 1400,
-        // Prevent slow reasoning models from burning 30s on hidden thought tokens
-        reasoning: { exclude: true },
+        max_tokens: 4096,
+        // Keep thinking minimal so reasoning models answer fast and never hit finish_reason: length
+        reasoning: { effort: 'low' },
         messages: [
           { role: 'system', content: params.systemPrompt },
           {
@@ -321,19 +324,17 @@ CRITICAL RULES:
 5. Strip leading 5-6 digit SKU codes. NEVER invent fake "Miscellaneous" filler items.
 6. Return ONLY raw JSON with no markdown fences or commentary.`;
 
-  // Respect explicit model selection! Only auto-fallback across multiple :free models
-  // when the user selected the automatic router (`openrouter/free`).
-  const candidates: string[] = [targetModel];
+  // When `openrouter/free` is selected, try fast specific `:free` vision models (like Nemotron VL)
+  // first before falling back to the generic `openrouter/free` router (which often routes to slow particle-1).
+  let candidates: string[] = [targetModel];
   if (targetModel === DEFAULT_OPENROUTER_MODEL) {
     try {
-      const liveFree = await fetchOpenRouterFreeVisionModels();
-      for (const m of liveFree) {
-        if (m !== DEFAULT_OPENROUTER_MODEL && candidates.length < 5) {
-          candidates.push(m);
-        }
-      }
+      const liveFree = (await fetchOpenRouterFreeVisionModels()).filter(
+        (m) => m !== DEFAULT_OPENROUTER_MODEL
+      );
+      candidates = [...liveFree.slice(0, 4), DEFAULT_OPENROUTER_MODEL];
     } catch {
-      // ignore catalog fetch errors
+      candidates = [DEFAULT_OPENROUTER_MODEL];
     }
   }
 

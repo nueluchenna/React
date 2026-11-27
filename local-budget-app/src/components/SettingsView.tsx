@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   AlertCircle,
   Loader2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import {
   db,
@@ -80,6 +82,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   const [testingKey, setTestingKey] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [keyTestResult, setKeyTestResult] = useState<{
     ok: boolean;
     message: string;
@@ -453,16 +456,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
                 OpenRouter API key (free at openrouter.ai/keys)
               </label>
-              <input
-                type="password"
-                value={openRouterApiKey}
-                onChange={(e) => {
-                  setOpenRouterApiKey(e.target.value);
-                  setKeyTestResult(null);
-                }}
-                placeholder="sk-or-v1-..."
-                className="w-full px-4 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
-              />
+              <div className="relative">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={openRouterApiKey}
+                  onChange={(e) => {
+                    setOpenRouterApiKey(e.target.value);
+                    setKeyTestResult(null);
+                  }}
+                  placeholder="sk-or-v1-..."
+                  className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey((v) => !v)}
+                  aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6A6C6A] hover:text-[#0E0F0C] cursor-pointer"
+                >
+                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <div>
@@ -504,16 +517,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
                 Groq API key (stored locally only)
               </label>
-              <input
-                type="password"
-                value={groqApiKey}
-                onChange={(e) => {
-                  setGroqApiKey(e.target.value);
-                  setKeyTestResult(null);
-                }}
-                placeholder="gsk_..."
-                className="w-full px-4 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
-              />
+              <div className="relative">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={groqApiKey}
+                  onChange={(e) => {
+                    setGroqApiKey(e.target.value);
+                    setKeyTestResult(null);
+                  }}
+                  placeholder="gsk_..."
+                  className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey((v) => !v)}
+                  aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6A6C6A] hover:text-[#0E0F0C] cursor-pointer"
+                >
+                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <div>
@@ -555,25 +578,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
                 Gemini API key (AIza... or AQ...)
               </label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val.trim().startsWith('gsk_')) {
-                    setGroqApiKey(val);
-                    setProvider('groq');
-                  } else if (val.trim().startsWith('sk-or-')) {
-                    setOpenRouterApiKey(val);
-                    setProvider('openrouter');
-                  } else {
-                    setApiKey(val);
-                  }
-                  setKeyTestResult(null);
-                }}
-                placeholder="AIzaSy... or AQ.Ab8..."
-                className="w-full px-4 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
-              />
+              <div className="relative">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val.trim().startsWith('gsk_')) {
+                      setGroqApiKey(val);
+                      setProvider('groq');
+                    } else if (val.trim().startsWith('sk-or-')) {
+                      setOpenRouterApiKey(val);
+                      setProvider('openrouter');
+                    } else {
+                      setApiKey(val);
+                    }
+                    setKeyTestResult(null);
+                  }}
+                  placeholder="AIzaSy... or AQ.Ab8..."
+                  className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey((v) => !v)}
+                  aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6A6C6A] hover:text-[#0E0F0C] cursor-pointer"
+                >
+                  {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <div>
