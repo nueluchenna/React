@@ -1,7 +1,8 @@
 /**
  * Isolated OpenRouter Vision Receipt Parser (src/services/openRouterReceiptParser.ts)
  * Uses OpenRouter's zero-credit-card free tier (`openrouter/free` smart vision router
- * or any live `:free` vision model) to read receipt pixels directly.
+ * or live `:free` vision models) with fast vision-optimized compression, timeout guards,
+ * and automatic fallback if a free endpoint stalls or returns empty content.
  */
 import {
   SPENDEE_CATEGORIES,
@@ -9,6 +10,7 @@ import {
   type LineItem,
   type SpendeeCategory,
 } from '../db/db';
+import { compressImageToDataUrl } from '../utils/imageCompression';
 
 export const DEFAULT_OPENROUTER_MODEL = 'openrouter/free';
 
@@ -39,7 +41,7 @@ function sanitizeDateISO(raw?: string): string {
   return todayISO();
 }
 
-function extractJsonObject(raw: string): string {
+function extractJsonObject(raw: string): string | null {
   const stripped = raw
     .replace(/^```json\s*/i, '')
     .replace(/^```\s*/i, '')
@@ -50,11 +52,12 @@ function extractJsonObject(raw: string): string {
   if (firstBrace !== -1 && lastBrace > firstBrace) {
     return stripped.slice(firstBrace, lastBrace + 1);
   }
-  return stripped;
+  return null;
 }
 
 /**
- * Fetches live `:free` vision-capable models from OpenRouter's public catalog.
+ * Fetches live `:free` vision-capable models from OpenRouter's public catalog,
+ * prioritizing fast non-thinking vision models (Gemma / Qwen VL / Llama Vision).
  */
 export async function fetchOpenRouterFreeVisionModels(): Promise<string[]> {
   const res = await fetch('https://openrouter.ai/api/v1/models');
@@ -72,6 +75,17 @@ export async function fetchOpenRouterFreeVisionModels(): Promise<string[]> {
     }>;
   };
 
+  const scoreModel = (id: string) => {
+    const lower = id.toLowerCase();
+    if (lower.includes('gemma') && lower.includes('27b')) return 0;
+    if (lower.includes('gemma')) return 1;
+    if (lower.includes('qwen') && lower.includes('vl')) return 2;
+    if (lower.includes('mistral') || lower.includes('pixtral')) return 3;
+    if (lower.includes('llama')) return 4;
+    if (lower.includes('nemotron')) return 5;
+    return 6;
+  };
+
   const freeVision = (data.data || [])
     .filter((m) => {
       const isFree = m.id.endsWith(':free') || m.id === 'openrouter/free';
@@ -82,7 +96,7 @@ export async function fetchOpenRouterFreeVisionModels(): Promise<string[]> {
       return isFree && hasVision;
     })
     .map((m) => m.id)
-    .sort((a, b) => a.localeCompare(b));
+    .sort((a, b) => scoreModel(a) - scoreModel(b) || a.localeCompare(b));
 
   return [DEFAULT_OPENROUTER_MODEL, ...freeVision.filter((m) => m !== DEFAULT_OPENROUTER_MODEL)];
 }
@@ -107,10 +121,13 @@ export async function testOpenRouterApiKey(
   }
 
   const targetModel = (modelName || DEFAULT_OPENROUTER_MODEL).trim();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 18000);
 
   try {
     const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${trimmed}`,
@@ -121,6 +138,7 @@ export async function testOpenRouterApiKey(
         model: targetModel,
         messages: [{ role: 'user', content: 'Reply with OK' }],
         max_tokens: 16,
+        reasoning: { exclude: true },
       }),
     });
 
@@ -144,20 +162,124 @@ export async function testOpenRouterApiKey(
       message: `Connected via OpenRouter (${routedModel}). Loaded ${availableModels.length} free vision option(s).`,
     };
   } catch (err) {
+    const isTimeout = err instanceof Error && err.name === 'AbortError';
     return {
       ok: false,
       provider: 'OpenRouter',
       availableModels,
-      message: `Network error connecting to OpenRouter: ${
-        err instanceof Error ? err.message : String(err)
-      }`,
+      message: isTimeout
+        ? `OpenRouter timed out on "${targetModel}". Click "Load free models" and pick a specific fast :free vision model (like Gemma or Qwen VL).`
+        : `Network error connecting to OpenRouter: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
     };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function callOpenRouterSingleModel(params: {
+  visionImageDataUrl: string;
+  apiKey: string;
+  model: string;
+  systemPrompt: string;
+  timeoutMs: number;
+}): Promise<{ jsonText: string; actualModel: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), params.timeoutMs);
+
+  try {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${params.apiKey.trim()}`,
+        'HTTP-Referer': window.location.origin,
+        'X-Title': 'Manni Expense Tracker',
+      },
+      body: JSON.stringify({
+        model: params.model,
+        temperature: 0.1,
+        max_tokens: 1400,
+        // Prevent slow reasoning models from burning 30s on hidden thought tokens
+        reasoning: { exclude: true },
+        messages: [
+          { role: 'system', content: params.systemPrompt },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: 'Extract all receipt fields and itemized line items from this receipt photo into the required JSON object. Return JSON only.',
+              },
+              {
+                type: 'image_url',
+                image_url: { url: params.visionImageDataUrl },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`OpenRouter (${params.model}) HTTP ${res.status}: ${errText.slice(0, 180)}`);
+    }
+
+    const data = await res.json();
+    if (data?.error?.message) {
+      throw new Error(`OpenRouter (${params.model}): ${data.error.message}`);
+    }
+
+    const choice = data?.choices?.[0];
+    const actualModel: string = data?.model || params.model;
+    const rawContent: string =
+      typeof choice?.message?.content === 'string'
+        ? choice.message.content
+        : Array.isArray(choice?.message?.content)
+        ? choice.message.content
+            .map((p: { text?: string }) => p?.text || '')
+            .join('\n')
+        : '';
+
+    const rawReasoning: string =
+      typeof choice?.message?.reasoning === 'string' ? choice.message.reasoning : '';
+
+    const jsonFromContent = extractJsonObject(rawContent);
+    if (jsonFromContent) {
+      return { jsonText: jsonFromContent, actualModel };
+    }
+
+    // Some reasoning models put JSON inside reasoning when content is empty
+    const jsonFromReasoning = extractJsonObject(rawReasoning);
+    if (jsonFromReasoning) {
+      return { jsonText: jsonFromReasoning, actualModel };
+    }
+
+    const finishReason = choice?.finish_reason || 'unknown';
+    const preview = (rawContent || rawReasoning).slice(0, 100);
+    throw new Error(
+      `Model "${actualModel}" returned empty/non-JSON output (finish_reason: ${finishReason}${
+        preview ? `, preview: "${preview}"` : ''
+      })`
+    );
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`OpenRouter (${params.model}) timed out after ${Math.round(params.timeoutMs / 1000)}s`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
 /**
- * Direct Multimodal Vision Receipt Extraction via OpenRouter (`openrouter/free` or any `:free` VL model).
- * Sends the actual receipt pixels directly so paper bleed-through & wrinkles don't break extraction.
+ * Direct Multimodal Vision Receipt Extraction via OpenRouter.
+ * Downscales image to a crisp 1024px / 0.72 JPEG for fast upload & vision tokenization,
+ * enforces a strict timeout, and automatically falls back to a fast `:free` vision model
+ * if `openrouter/free` stalls or returns empty output.
  */
 export async function parseReceiptWithOpenRouter(params: {
   imageDataUrl: string;
@@ -169,6 +291,14 @@ export async function parseReceiptWithOpenRouter(params: {
   const today = todayISO();
   const defaultCurrency = params.defaultCurrency || 'EUR';
   const targetModel = (params.modelName || DEFAULT_OPENROUTER_MODEL).trim();
+
+  // Fast vision-sized payload (~100-180 KB instead of 1MB+) while keeping receipt text crisp
+  const visionImageDataUrl = await compressImageToDataUrl(
+    params.imageDataUrl,
+    1024,
+    0.74,
+    2400
+  );
 
   const systemPrompt = `You are a precise multimodal receipt extraction engine. Look directly at the receipt image (ignoring any faint logo or QR code bleeding through from the back of the paper) and return ONLY a valid JSON object matching this exact structure:
 {
@@ -184,52 +314,50 @@ export async function parseReceiptWithOpenRouter(params: {
   ]
 }
 CRITICAL RULES:
-1. Supermarkets (Lidl, Aldi, Aldi Süd, REWE, EDEKA, Kaufland, Netto, Penny, Carrefour, Tesco, BioMarkt, etc.) MUST ALWAYS be categorized as "Groceries" (never "Shopping" or "Food & Drink").
-2. Recognize brand logos at the top (e.g., LIDL, ALDI) or cues like "Lidl Plus" / "LDL-". Never use a street address (Str., Straße, postal code) as the merchant name.
-3. European receipts use commas as decimal separators (49,22 = 49.22) and totals may be labeled "zu zahlen", "Summe", "ALDI PREIS", "Kreditkarte", "Kartenzahlung", or "TOTAL".
+1. Supermarkets (Lidl, Aldi, Aldi Süd, REWE, EDEKA, Kaufland, Netto, Penny, Carrefour, Tesco, BioMarkt, etc.) MUST ALWAYS be categorized as "Groceries".
+2. Recognize brand logos at the top (e.g., LIDL, ALDI) or cues like "Lidl Plus" / "LDL-". Never use a street address as the merchant name.
+3. European receipts use commas as decimals (49,22 = 49.22) and totals may be labeled "zu zahlen", "Summe", "ALDI PREIS", "Kreditkarte", "Kartenzahlung", or "TOTAL".
 4. Parse multi-quantity items accurately (e.g. "Speisequark 0%  1,19 x 4  4,76 A" -> quantity: 4, unitPrice: 1.19, totalPrice: 4.76).
-5. Strip leading 5-6 digit product/SKU numbers from item names. NEVER invent fake "Miscellaneous" filler items.
+5. Strip leading 5-6 digit SKU codes. NEVER invent fake "Miscellaneous" filler items.
 6. Return ONLY raw JSON with no markdown fences or commentary.`;
 
-  const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${params.apiKey.trim()}`,
-      'HTTP-Referer': window.location.origin,
-      'X-Title': 'Manni Expense Tracker',
-    },
-    body: JSON.stringify({
-      model: targetModel,
-      temperature: 0.1,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Extract all receipt fields and itemized line items from this receipt photo into the required JSON object.',
-            },
-            {
-              type: 'image_url',
-              image_url: { url: params.imageDataUrl },
-            },
-          ],
-        },
-      ],
-    }),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`OpenRouter API error (${res.status}): ${errText.slice(0, 180)}`);
+  // Build candidate model list: requested model first, plus fast live :free vision fallbacks
+  const candidates: string[] = [targetModel];
+  try {
+    const liveFree = await fetchOpenRouterFreeVisionModels();
+    for (const m of liveFree) {
+      if (m !== targetModel && m !== DEFAULT_OPENROUTER_MODEL && candidates.length < 3) {
+        candidates.push(m);
+      }
+    }
+  } catch {
+    // ignore catalog fetch errors
   }
 
-  const data = await res.json();
-  const content: string = data?.choices?.[0]?.message?.content || '{}';
-  const cleanedJson = extractJsonObject(content);
-  const parsed = JSON.parse(cleanedJson);
+  let lastError: Error | null = null;
+  let winner: { jsonText: string; actualModel: string } | null = null;
+
+  for (const candidate of candidates) {
+    try {
+      winner = await callOpenRouterSingleModel({
+        visionImageDataUrl,
+        apiKey: params.apiKey,
+        model: candidate,
+        systemPrompt,
+        timeoutMs: 22000,
+      });
+      break;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      console.warn(`OpenRouter candidate "${candidate}" failed:`, lastError.message);
+    }
+  }
+
+  if (!winner) {
+    throw lastError || new Error('All OpenRouter free vision models failed to respond.');
+  }
+
+  const parsed = JSON.parse(winner.jsonText);
 
   const lineItems: LineItem[] = Array.isArray(parsed.lineItems)
     ? parsed.lineItems.map((it: Partial<LineItem>) => {
@@ -270,8 +398,8 @@ CRITICAL RULES:
               totalPrice: totalAmount,
             },
           ],
-    modelUsed: data?.model || targetModel,
+    modelUsed: winner.actualModel,
     durationMs: Math.round(performance.now() - start),
-    rawJson: cleanedJson,
+    rawJson: winner.jsonText,
   };
 }

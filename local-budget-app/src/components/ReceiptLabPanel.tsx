@@ -41,6 +41,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
     initialImageDataUrl || null
   );
   const [running, setRunning] = useState(false);
+  const [stageStatus, setStageStatus] = useState<string>('');
   const [ocrProgress, setOcrProgress] = useState(0);
 
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
@@ -70,9 +71,14 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
     setAiError(null);
 
     try {
-      const ocr = await runReceiptOCR(imageDataUrl, (pct) => setOcrProgress(pct));
+      setStageStatus('Stage 1: Running OCR...');
+      const ocr = await runReceiptOCR(imageDataUrl, (pct) => {
+        setOcrProgress(pct);
+        setStageStatus(`Stage 1: OCR (${pct}%)`);
+      });
       setOcrResult(ocr);
 
+      setStageStatus('Stage 2: Regex...');
       const defaultCurrency = await getSetting<string>('defaultCurrency', 'EUR');
       const regexParsed = parseOCRTextWithRegex(ocr.rawText, defaultCurrency);
       setRegexResult(regexParsed);
@@ -84,6 +90,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
       const groqModel = await getSetting<string>('groqModel', DEFAULT_GROQ_MODEL);
 
       if (provider === 'openrouter' && openRouterKey.trim()) {
+        setStageStatus('Stage 3: Calling OpenRouter Vision...');
         try {
           const orParsed = await parseReceiptWithOpenRouter({
             imageDataUrl,
@@ -110,6 +117,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
           setAiError(err instanceof Error ? err.message : String(err));
         }
       } else if (groqKey.trim()) {
+        setStageStatus('Stage 3: Calling Groq...');
         try {
           const groqParsed = await parseReceiptTextWithGroq({
             rawOcrText: ocr.rawText,
@@ -137,6 +145,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
           setAiError(err instanceof Error ? err.message : String(err));
         }
       } else if (openRouterKey.trim()) {
+        setStageStatus('Stage 3: Calling OpenRouter Vision...');
         try {
           const orParsed = await parseReceiptWithOpenRouter({
             imageDataUrl,
@@ -167,6 +176,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
       }
     } finally {
       setRunning(false);
+      setStageStatus('');
     }
   };
 
@@ -210,7 +220,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
             ) : (
               <Play className="w-3.5 h-3.5" />
             )}
-            <span>{running ? `Running (${ocrProgress}%)...` : 'Run 3-stage test'}</span>
+            <span>{running ? stageStatus || `Running (${ocrProgress}%)...` : 'Run 3-stage test'}</span>
           </button>
         </div>
       </div>

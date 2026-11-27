@@ -90,27 +90,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   useEffect(() => {
     void (async () => {
-      const [p, ork, orm, gk, gm, k, m, backupTs] = await Promise.all([
-        getSetting<AIProvider>('aiProvider', 'openrouter'),
-        getSetting<string>('openRouterApiKey', ''),
-        getSetting<string>('openRouterModel', DEFAULT_OPENROUTER_MODEL),
-        getSetting<string>('groqApiKey', ''),
-        getSetting<string>('groqModel', DEFAULT_GROQ_MODEL),
-        getSetting<string>('geminiApiKey', ''),
-        getSetting<string>('geminiModel', 'gemini-2.5-flash'),
-        getSetting<string | null>('lastBackupAt', null),
-      ]);
+      const [p, ork, orm, cachedOrModels, gk, gm, cachedGModels, k, m, backupTs] =
+        await Promise.all([
+          getSetting<AIProvider>('aiProvider', 'openrouter'),
+          getSetting<string>('openRouterApiKey', ''),
+          getSetting<string>('openRouterModel', DEFAULT_OPENROUTER_MODEL),
+          getSetting<string[]>('cachedOpenRouterModels', []),
+          getSetting<string>('groqApiKey', ''),
+          getSetting<string>('groqModel', DEFAULT_GROQ_MODEL),
+          getSetting<string[]>('cachedGroqModels', []),
+          getSetting<string>('geminiApiKey', ''),
+          getSetting<string>('geminiModel', 'gemini-2.5-flash'),
+          getSetting<string | null>('lastBackupAt', null),
+        ]);
       const migratedGroqModel =
         gm === 'meta-llama/llama-4-maverick-17b-128e-instruct' ||
         gm === 'meta-llama/llama-4-scout-17b-16e-instruct'
           ? DEFAULT_GROQ_MODEL
           : gm;
 
+      const resolvedOrModel = (orm || DEFAULT_OPENROUTER_MODEL).trim();
+      const mergedOrModels = Array.from(
+        new Set([
+          DEFAULT_OPENROUTER_MODEL,
+          resolvedOrModel,
+          ...(Array.isArray(cachedOrModels) ? cachedOrModels : []),
+        ])
+      );
+
+      const mergedGroqModels = Array.from(
+        new Set([
+          'openai/gpt-oss-120b',
+          'openai/gpt-oss-20b',
+          'qwen/qwen3.8-27b',
+          migratedGroqModel,
+          ...(Array.isArray(cachedGModels) ? cachedGModels : []),
+        ])
+      );
+
       setProvider(p);
       setOpenRouterApiKey(ork);
-      setOpenRouterModel(orm || DEFAULT_OPENROUTER_MODEL);
+      setOpenRouterModel(resolvedOrModel);
+      setLiveOpenRouterModels(mergedOrModels);
       setGroqApiKey(gk);
       setGroqModel(migratedGroqModel);
+      setLiveGroqModels(mergedGroqModels);
       if (migratedGroqModel !== gm) {
         await setSetting('groqModel', migratedGroqModel);
       }
@@ -162,10 +186,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       const models = await fetchOpenRouterFreeVisionModels();
       if (models.length > 0) {
-        setLiveOpenRouterModels(models);
-        if (!models.includes(openRouterModel)) {
-          setOpenRouterModel(models[0]);
-        }
+        const merged = Array.from(new Set([...models, openRouterModel].filter(Boolean)));
+        setLiveOpenRouterModels(merged);
+        await setSetting('cachedOpenRouterModels', merged);
         onShowToast(`Loaded ${models.length} free OpenRouter vision option(s).`);
       }
     } catch (err) {
@@ -183,10 +206,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     try {
       const models = await fetchGroqModels(groqApiKey.trim());
       if (models.length > 0) {
-        setLiveGroqModels(models);
-        if (!models.includes(groqModel)) {
-          setGroqModel(models[0]);
-        }
+        const merged = Array.from(new Set([...models, groqModel].filter(Boolean)));
+        setLiveGroqModels(merged);
+        await setSetting('cachedGroqModels', merged);
         onShowToast(`Loaded ${models.length} active Groq models from your account.`);
       }
     } catch (err) {
@@ -217,13 +239,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           openRouterModel.trim()
         );
         if (res.availableModels && res.availableModels.length > 0) {
-          setLiveOpenRouterModels(res.availableModels);
+          const merged = Array.from(
+            new Set([...res.availableModels, openRouterModel].filter(Boolean))
+          );
+          setLiveOpenRouterModels(merged);
+          await setSetting('cachedOpenRouterModels', merged);
         }
         setKeyTestResult({ ok: res.ok, message: res.message });
       } else if (provider === 'groq') {
         const res = await testGroqApiKey(groqApiKey.trim(), groqModel.trim());
         if (res.availableModels && res.availableModels.length > 0) {
-          setLiveGroqModels(res.availableModels);
+          const merged = Array.from(
+            new Set([...res.availableModels, groqModel].filter(Boolean))
+          );
+          setLiveGroqModels(merged);
+          await setSetting('cachedGroqModels', merged);
         }
         setKeyTestResult({ ok: res.ok, message: res.message });
       } else {
@@ -450,18 +480,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </button>
               </div>
               <select
-                value={
-                  liveOpenRouterModels.includes(openRouterModel)
-                    ? openRouterModel
-                    : liveOpenRouterModels[0]
-                }
+                value={openRouterModel}
                 onChange={(e) => {
-                  setOpenRouterModel(e.target.value);
+                  const next = e.target.value;
+                  setOpenRouterModel(next);
                   setKeyTestResult(null);
+                  void setSetting('openRouterModel', next);
+                  void setSetting('aiProvider', 'openrouter');
                 }}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
               >
-                {liveOpenRouterModels.map((m) => (
+                {Array.from(new Set([...liveOpenRouterModels, openRouterModel].filter(Boolean))).map((m) => (
                   <option key={m} value={m}>
                     {m === 'openrouter/free' ? 'openrouter/free (Auto Vision)' : m}
                   </option>
@@ -502,14 +531,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </button>
               </div>
               <select
-                value={liveGroqModels.includes(groqModel) ? groqModel : liveGroqModels[0]}
+                value={groqModel}
                 onChange={(e) => {
-                  setGroqModel(e.target.value);
+                  const next = e.target.value;
+                  setGroqModel(next);
                   setKeyTestResult(null);
+                  void setSetting('groqModel', next);
+                  void setSetting('aiProvider', 'groq');
                 }}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
               >
-                {liveGroqModels.map((m) => (
+                {Array.from(new Set([...liveGroqModels, groqModel].filter(Boolean))).map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>
