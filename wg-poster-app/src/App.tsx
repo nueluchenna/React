@@ -1,121 +1,133 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { useEffect, useMemo, useState } from 'react'
+import { Header } from './components/Header'
+import { PosterStudio } from './components/PosterStudio'
+import { RulesChecklist } from './components/RulesChecklist'
+import { WgDirectory } from './components/WgDirectory'
+import { db, ensureSeedData } from './db'
+import type { AppTab, Language, RuleCategory } from './types'
 
-function App() {
-  const [count, setCount] = useState(0)
+const LANG_STORAGE_KEY = 'wg-kompass-lang'
+const ACTIVE_WG_STORAGE_KEY = 'wg-kompass-active-wg'
+
+function readInitialLanguage(): Language {
+  const saved = window.localStorage.getItem(LANG_STORAGE_KEY)
+  return saved === 'en' ? 'en' : 'de'
+}
+
+function readInitialWgId(): number | null {
+  const saved = window.localStorage.getItem(ACTIVE_WG_STORAGE_KEY)
+  if (!saved) return null
+  const parsed = Number(saved)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function App() {
+  const [lang, setLang] = useState<Language>(readInitialLanguage)
+  const [activeTab, setActiveTab] = useState<AppTab>('rules')
+  const [activeWgId, setActiveWgId] = useState<number | null>(readInitialWgId)
+  const [posterRoom, setPosterRoom] = useState<RuleCategory | 'all'>('kitchen')
+  const [ready, setReady] = useState(false)
+
+  useEffect(() => {
+    void ensureSeedData().then(() => setReady(true))
+  }, [])
+
+  const wgs = useLiveQuery(() => db.wgs.toArray(), [], [])
+  const allRules = useLiveQuery(() => db.rules.toArray(), [], [])
+
+  const activeWg = useMemo(
+    () =>
+      wgs.find((w) => w.id === activeWgId) ??
+      wgs.find((w) => w.joined) ??
+      wgs[0],
+    [wgs, activeWgId],
+  )
+
+  useEffect(() => {
+    if (activeWg?.id != null) {
+      window.localStorage.setItem(ACTIVE_WG_STORAGE_KEY, String(activeWg.id))
+    }
+  }, [activeWg?.id])
+
+  const activeWgRules = useMemo(() => {
+    if (!activeWg?.id) return []
+    return allRules
+      .filter((r) => r.wgId === activeWg.id)
+      .sort((a, b) => {
+        if (a.completed !== b.completed) return a.completed ? 1 : -1
+        if (a.priority !== b.priority) return a.priority === 'high' ? -1 : 1
+        return b.createdAt - a.createdAt
+      })
+  }, [allRules, activeWg])
+
+  const ruleCountByWg = useMemo(() => {
+    const counts: Record<number, number> = {}
+    for (const r of allRules) {
+      counts[r.wgId] = (counts[r.wgId] ?? 0) + 1
+    }
+    return counts
+  }, [allRules])
+
+  function handleToggleLang() {
+    const next: Language = lang === 'de' ? 'en' : 'de'
+    setLang(next)
+    window.localStorage.setItem(LANG_STORAGE_KEY, next)
+    document.documentElement.lang = next
+  }
+
+  function handleSelectWg(wgId: number) {
+    setActiveWgId(wgId)
+    window.localStorage.setItem(ACTIVE_WG_STORAGE_KEY, String(wgId))
+    setActiveTab('rules')
+  }
+
+  function handleOpenPosterForRoom(room: RuleCategory | 'all') {
+    setPosterRoom(room)
+    setActiveTab('posters')
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="min-h-screen bg-[#FAF8F5] text-stone-900">
+      <Header
+        lang={lang}
+        onToggleLang={handleToggleLang}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        activeWg={activeWg}
+      />
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <main className="pb-16">
+        {!ready || !activeWg ? (
+          <div className="mx-auto max-w-6xl px-6 py-20 text-center text-sm text-stone-500">
+            {lang === 'de' ? 'WG-Kompass wird geladen…' : 'Loading WG-Kompass…'}
+          </div>
+        ) : activeTab === 'rules' ? (
+          <RulesChecklist
+            lang={lang}
+            wg={activeWg}
+            rules={activeWgRules}
+            onOpenPosterForRoom={handleOpenPosterForRoom}
+          />
+        ) : activeTab === 'posters' ? (
+          <PosterStudio
+            key={`${activeWg.id ?? 'wg'}-${posterRoom}`}
+            lang={lang}
+            wg={activeWg}
+            rules={activeWgRules}
+            initialRoom={posterRoom}
+          />
+        ) : (
+          <WgDirectory
+            lang={lang}
+            wgs={wgs}
+            ruleCountByWg={ruleCountByWg}
+            activeWgId={activeWg.id ?? null}
+            onSelectWg={handleSelectWg}
+          />
+        )}
+      </main>
+    </div>
   )
 }
 
