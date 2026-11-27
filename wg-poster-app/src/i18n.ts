@@ -26,6 +26,10 @@ export const TRANSLATIONS = {
     },
     activeWg: 'Aktive WG',
     switchWg: 'WG wechseln',
+    syncLive: 'Live-Sync',
+    syncLocal: 'Lokal-Modus',
+    copyWgLink: 'WG-Link kopieren',
+    copiedWgLink: 'Link kopiert!',
     categories: {
       all: 'Alle Bereiche',
       kitchen: 'Küche',
@@ -163,6 +167,10 @@ export const TRANSLATIONS = {
     },
     activeWg: 'Active WG',
     switchWg: 'Switch WG',
+    syncLive: 'Live Sync',
+    syncLocal: 'Local Mode',
+    copyWgLink: 'Copy WG link',
+    copiedWgLink: 'Link copied!',
     categories: {
       all: 'All Rooms',
       kitchen: 'Kitchen',

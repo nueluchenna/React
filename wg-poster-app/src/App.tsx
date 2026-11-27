@@ -1,10 +1,14 @@
-import { useLiveQuery } from 'dexie-react-hooks'
+import { AlertCircle } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Header } from './components/Header'
 import { PosterStudio } from './components/PosterStudio'
 import { RulesChecklist } from './components/RulesChecklist'
 import { WgDirectory } from './components/WgDirectory'
-import { db, ensureSeedData } from './db'
+import {
+  getWgCodeFromUrl,
+  setWgCodeInUrl,
+  useWgData,
+} from './lib/wgStore'
 import type { AppTab, Language, RuleCategory } from './types'
 
 const LANG_STORAGE_KEY = 'wg-kompass-lang'
@@ -26,29 +30,32 @@ export function App() {
   const [lang, setLang] = useState<Language>(readInitialLanguage)
   const [activeTab, setActiveTab] = useState<AppTab>('rules')
   const [activeWgId, setActiveWgId] = useState<number | null>(readInitialWgId)
+  const [urlWgCode, setUrlWgCode] = useState<string | null>(getWgCodeFromUrl)
   const [posterRoom, setPosterRoom] = useState<RuleCategory | 'all'>('kitchen')
-  const [ready, setReady] = useState(false)
 
-  useEffect(() => {
-    void ensureSeedData().then(() => setReady(true))
-  }, [])
+  const store = useWgData()
+  const { wgs, rules: allRules, ready, mode, syncError } = store
 
-  const wgs = useLiveQuery(() => db.wgs.toArray(), [], [])
-  const allRules = useLiveQuery(() => db.rules.toArray(), [], [])
-
-  const activeWg = useMemo(
-    () =>
+  const activeWg = useMemo(() => {
+    if (urlWgCode) {
+      const byCode = wgs.find(
+        (w) => w.inviteCode.toUpperCase() === urlWgCode.toUpperCase(),
+      )
+      if (byCode) return byCode
+    }
+    return (
       wgs.find((w) => w.id === activeWgId) ??
       wgs.find((w) => w.joined) ??
-      wgs[0],
-    [wgs, activeWgId],
-  )
+      wgs[0]
+    )
+  }, [wgs, activeWgId, urlWgCode])
 
   useEffect(() => {
     if (activeWg?.id != null) {
       window.localStorage.setItem(ACTIVE_WG_STORAGE_KEY, String(activeWg.id))
+      setWgCodeInUrl(activeWg.inviteCode)
     }
-  }, [activeWg?.id])
+  }, [activeWg?.id, activeWg?.inviteCode])
 
   const activeWgRules = useMemo(() => {
     if (!activeWg?.id) return []
@@ -77,8 +84,11 @@ export function App() {
   }
 
   function handleSelectWg(wgId: number) {
+    setUrlWgCode(null)
     setActiveWgId(wgId)
     window.localStorage.setItem(ACTIVE_WG_STORAGE_KEY, String(wgId))
+    const chosen = wgs.find((w) => w.id === wgId)
+    if (chosen) setWgCodeInUrl(chosen.inviteCode)
     setActiveTab('rules')
   }
 
@@ -95,35 +105,52 @@ export function App() {
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         activeWg={activeWg}
+        syncMode={mode}
       />
 
+      {syncError && (
+        <div className="no-print mx-auto mt-4 max-w-6xl px-4 sm:px-6">
+          <div className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-medium text-amber-900">
+            <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+            <span>Supabase sync error: {syncError}</span>
+          </div>
+        </div>
+      )}
+
       <main className="pb-16">
-        {!ready || !activeWg ? (
+        {!ready ? (
           <div className="mx-auto max-w-6xl px-6 py-20 text-center text-sm text-stone-500">
             {lang === 'de' ? 'WG-Kompass wird geladen…' : 'Loading WG-Kompass…'}
           </div>
+        ) : !activeWg || activeTab === 'directory' ? (
+          <WgDirectory
+            lang={lang}
+            wgs={wgs}
+            ruleCountByWg={ruleCountByWg}
+            activeWgId={activeWg?.id ?? null}
+            onSelectWg={handleSelectWg}
+            onCreateWg={store.createWg}
+            onSetWgJoined={store.setWgJoined}
+          />
         ) : activeTab === 'rules' ? (
           <RulesChecklist
             lang={lang}
             wg={activeWg}
             rules={activeWgRules}
+            onAddRule={store.addRule}
+            onAddRulesBulk={store.addRulesBulk}
+            onUpdateRule={store.updateRule}
+            onDeleteRule={store.deleteRule}
+            onResetCompleted={store.resetCompletedRules}
             onOpenPosterForRoom={handleOpenPosterForRoom}
           />
-        ) : activeTab === 'posters' ? (
+        ) : (
           <PosterStudio
             key={`${activeWg.id ?? 'wg'}-${posterRoom}`}
             lang={lang}
             wg={activeWg}
             rules={activeWgRules}
             initialRoom={posterRoom}
-          />
-        ) : (
-          <WgDirectory
-            lang={lang}
-            wgs={wgs}
-            ruleCountByWg={ruleCountByWg}
-            activeWgId={activeWg.id ?? null}
-            onSelectWg={handleSelectWg}
           />
         )}
       </main>

@@ -1,11 +1,17 @@
 import {
   Building2,
+  Check,
   CheckSquare,
+  Cloud,
   Compass,
+  HardDrive,
   Languages,
+  Link2,
   Printer,
 } from 'lucide-react'
+import { useState } from 'react'
 import { getCopy } from '../i18n'
+import { buildShareableWgUrl } from '../lib/wgStore'
 import type { AppTab, Language, WgProfile } from '../types'
 
 interface HeaderProps {
@@ -14,6 +20,7 @@ interface HeaderProps {
   activeTab: AppTab
   onSelectTab: (tab: AppTab) => void
   activeWg: WgProfile | undefined
+  syncMode: 'supabase' | 'local'
 }
 
 export function Header({
@@ -22,14 +29,28 @@ export function Header({
   activeTab,
   onSelectTab,
   activeWg,
+  syncMode,
 }: HeaderProps) {
   const t = getCopy(lang)
+  const [copied, setCopied] = useState(false)
 
   const navItems: { id: AppTab; label: string; icon: typeof CheckSquare }[] = [
     { id: 'rules', label: t.nav.rules, icon: CheckSquare },
     { id: 'posters', label: t.nav.posters, icon: Printer },
     { id: 'directory', label: t.nav.directory, icon: Building2 },
   ]
+
+  async function handleCopyLink() {
+    if (!activeWg) return
+    const url = buildShareableWgUrl(activeWg.inviteCode)
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2000)
+    } catch {
+      window.prompt(t.copyWgLink, url)
+    }
+  }
 
   return (
     <header className="no-print sticky top-0 z-30 border-b border-stone-200/80 bg-[#FAF8F5]/95 backdrop-blur">
@@ -78,19 +99,43 @@ export function Header({
           })}
         </nav>
 
-        {/* Right Controls: Active WG Pill + DE/EN Toggle */}
+        {/* Right Controls: Sync Mode + Shareable WG Link + DE/EN Toggle */}
         <div className="order-2 flex items-center gap-2 sm:order-3">
+          <span
+            className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold lg:inline-flex ${
+              syncMode === 'supabase'
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                : 'border-stone-200 bg-stone-100 text-stone-600'
+            }`}
+          >
+            {syncMode === 'supabase' ? (
+              <Cloud className="h-3 w-3 text-emerald-600" />
+            ) : (
+              <HardDrive className="h-3 w-3 text-stone-500" />
+            )}
+            <span>{syncMode === 'supabase' ? t.syncLive : t.syncLocal}</span>
+          </span>
+
           {activeWg && (
             <button
               type="button"
-              onClick={() => onSelectTab('directory')}
-              title={t.switchWg}
-              className="hidden items-center gap-2 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 transition-colors hover:border-stone-400 hover:text-stone-900 md:flex"
+              onClick={() => void handleCopyLink()}
+              title={t.copyWgLink}
+              className="hidden items-center gap-1.5 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 transition-colors hover:border-stone-400 hover:text-stone-900 md:flex"
             >
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              <span className="max-w-[150px] truncate">{activeWg.name}</span>
-              <span className="text-stone-400">·</span>
-              <span className="text-stone-500">{activeWg.city}</span>
+              {copied ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                  <span className="font-semibold text-emerald-700">
+                    {t.copiedWgLink}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Link2 className="h-3.5 w-3.5 text-[#D95D39]" />
+                  <span className="max-w-[130px] truncate">{activeWg.name}</span>
+                </>
+              )}
             </button>
           )}
 

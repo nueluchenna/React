@@ -11,13 +11,13 @@ import {
   X,
 } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
-import { db } from '../db'
 import {
   CATEGORY_ORDER,
   getCategoryLabel,
   getCopy,
   getFrequencyLabel,
 } from '../i18n'
+import type { NewRuleInput, RuleUpdatePatch } from '../lib/wgStore'
 import type {
   Language,
   RuleCategory,
@@ -33,6 +33,11 @@ interface RulesChecklistProps {
   lang: Language
   wg: WgProfile
   rules: WgRule[]
+  onAddRule: (rule: NewRuleInput) => Promise<void>
+  onAddRulesBulk: (rules: NewRuleInput[]) => Promise<void>
+  onUpdateRule: (ruleId: number, patch: RuleUpdatePatch) => Promise<void>
+  onDeleteRule: (ruleId: number) => Promise<void>
+  onResetCompleted: (wgId: number) => Promise<void>
   onOpenPosterForRoom: (room: RuleCategory | 'all') => void
 }
 
@@ -40,6 +45,11 @@ export function RulesChecklist({
   lang,
   wg,
   rules,
+  onAddRule,
+  onAddRulesBulk,
+  onUpdateRule,
+  onDeleteRule,
+  onResetCompleted,
   onOpenPosterForRoom,
 }: RulesChecklistProps) {
   const t = getCopy(lang)
@@ -113,7 +123,7 @@ export function RulesChecklist({
     e.preventDefault()
     if (!newTitle.trim() || wg.id == null) return
 
-    await db.rules.add({
+    await onAddRule({
       wgId: wg.id,
       title: newTitle.trim(),
       details: newDetails.trim() || undefined,
@@ -121,7 +131,6 @@ export function RulesChecklist({
       frequency: newFrequency,
       priority: newPriority,
       completed: false,
-      createdAt: Date.now(),
     })
 
     setNewTitle('')
@@ -132,19 +141,19 @@ export function RulesChecklist({
 
   async function handleToggleComplete(rule: WgRule) {
     if (rule.id == null) return
-    await db.rules.update(rule.id, { completed: !rule.completed })
+    await onUpdateRule(rule.id, { completed: !rule.completed })
   }
 
   async function handleTogglePriority(rule: WgRule) {
     if (rule.id == null) return
-    await db.rules.update(rule.id, {
+    await onUpdateRule(rule.id, {
       priority: rule.priority === 'high' ? 'normal' : 'high',
     })
   }
 
   async function handleDelete(rule: WgRule) {
     if (rule.id == null) return
-    await db.rules.delete(rule.id)
+    await onDeleteRule(rule.id)
   }
 
   function startEditing(rule: WgRule) {
@@ -159,7 +168,7 @@ export function RulesChecklist({
   async function saveEdit(e: FormEvent) {
     e.preventDefault()
     if (editingId == null || !editTitle.trim()) return
-    await db.rules.update(editingId, {
+    await onUpdateRule(editingId, {
       title: editTitle.trim(),
       details: editDetails.trim() || undefined,
       category: editCategory,
@@ -169,8 +178,8 @@ export function RulesChecklist({
   }
 
   async function handleResetChecks() {
-    const ids = rules.filter((r) => r.completed && r.id != null).map((r) => r.id!)
-    await Promise.all(ids.map((id) => db.rules.update(id, { completed: false })))
+    if (wg.id == null) return
+    await onResetCompleted(wg.id)
   }
 
   return (
@@ -646,6 +655,7 @@ export function RulesChecklist({
         <PdfImportModal
           lang={lang}
           wgId={wg.id}
+          onAddRulesBulk={onAddRulesBulk}
           onClose={() => setShowPdfModal(false)}
           onImported={(count) => {
             setShowPdfModal(false)

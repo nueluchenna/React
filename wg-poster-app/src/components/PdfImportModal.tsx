@@ -8,8 +8,8 @@ import {
   X,
 } from 'lucide-react'
 import { useRef, useState, type DragEvent } from 'react'
-import { db } from '../db'
 import { CATEGORY_ORDER, getCategoryLabel, getCopy } from '../i18n'
+import type { NewRuleInput } from '../lib/wgStore'
 import type { Language, ParsedRuleDraft, RuleCategory } from '../types'
 import {
   extractTextFromPdf,
@@ -20,6 +20,7 @@ import {
 interface PdfImportModalProps {
   lang: Language
   wgId: number
+  onAddRulesBulk: (rules: NewRuleInput[]) => Promise<void>
   onClose: () => void
   onImported: (count: number) => void
 }
@@ -27,6 +28,7 @@ interface PdfImportModalProps {
 export function PdfImportModal({
   lang,
   wgId,
+  onAddRulesBulk,
   onClose,
   onImported,
 }: PdfImportModalProps) {
@@ -112,9 +114,8 @@ export function PdfImportModal({
     const selected = drafts.filter((d) => d.selected && d.title.trim())
     if (selected.length === 0) return
 
-    const now = Date.now()
-    await db.rules.bulkAdd(
-      selected.map((d, idx) => ({
+    await onAddRulesBulk(
+      selected.map((d) => ({
         wgId,
         title: d.title.trim(),
         details: d.details?.trim() || undefined,
@@ -123,7 +124,6 @@ export function PdfImportModal({
         priority: d.priority,
         completed: false,
         sourceFile: sourceFileName,
-        createdAt: now + idx,
       })),
     )
 

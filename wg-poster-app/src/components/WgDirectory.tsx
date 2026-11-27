@@ -10,8 +10,8 @@ import {
   X,
 } from 'lucide-react'
 import { useMemo, useState, type FormEvent } from 'react'
-import { db } from '../db'
 import { getCopy } from '../i18n'
+import type { CreateWgInput } from '../lib/wgStore'
 import type { Language, WgProfile } from '../types'
 
 interface WgDirectoryProps {
@@ -20,6 +20,8 @@ interface WgDirectoryProps {
   ruleCountByWg: Record<number, number>
   activeWgId: number | null
   onSelectWg: (wgId: number) => void
+  onCreateWg: (input: CreateWgInput) => Promise<number | undefined>
+  onSetWgJoined: (wgId: number, joined: boolean) => Promise<void>
 }
 
 function generateInviteCode(name: string): string {
@@ -38,6 +40,8 @@ export function WgDirectory({
   ruleCountByWg,
   activeWgId,
   onSelectWg,
+  onCreateWg,
+  onSetWgJoined,
 }: WgDirectoryProps) {
   const t = getCopy(lang)
   const [query, setQuery] = useState('')
@@ -68,14 +72,14 @@ export function WgDirectory({
   async function handleJoinAndOpen(wg: WgProfile) {
     if (wg.id == null) return
     if (!wg.joined) {
-      await db.wgs.update(wg.id, { joined: true })
+      await onSetWgJoined(wg.id, true)
     }
     onSelectWg(wg.id)
   }
 
   async function handleLeave(wg: WgProfile) {
     if (wg.id == null) return
-    await db.wgs.update(wg.id, { joined: false })
+    await onSetWgJoined(wg.id, false)
   }
 
   async function handleCreateWg(e: FormEvent) {
@@ -87,7 +91,7 @@ export function WgDirectory({
       .map((m) => m.trim())
       .filter(Boolean)
 
-    const id = await db.wgs.add({
+    const id = await onCreateWg({
       name: name.trim(),
       city: city.trim(),
       district: district.trim() || 'Zentrum',
@@ -98,8 +102,6 @@ export function WgDirectory({
         (lang === 'de'
           ? 'Unsere gemeinsame WG auf WG-Kompass.'
           : 'Our shared flat on WG-Kompass.'),
-      joined: true,
-      createdAt: Date.now(),
     })
 
     setName('')
