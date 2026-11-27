@@ -173,7 +173,12 @@ export async function parseReceiptTextWithGroq(params: {
     { "name": "Item name", "quantity": 1, "unitPrice": 0.00, "totalPrice": 0.00 }
   ]
 }
-Handle European/German receipts (Lidl, Aldi, REWE, etc.) where commas are decimal separators (44,50 = 44.50) and total may be labeled SUMME, zu zahlen, Kartenzahlung, or TOTAL. Fix minor OCR spelling mistakes in item names.`;
+CRITICAL RULES FOR EUROPEAN & OCR RECEIPTS:
+1. Category: Supermarkets and grocery stores (Aldi, Aldi Süd, Lidl, REWE, EDEKA, Kaufland, Netto, Penny, Carrefour, Tesco, BioMarkt, etc.) MUST ALWAYS be categorized as "Groceries" (never "Shopping").
+2. Total: Look for "ALDI PREIS" (or OCR typo "ALDY PREIS"), "SUMME", "zu zahlen", "Kartenzahlung" (or typo "Kartenzahiung"), or "TOTAL". Ignore garbled VAT/MwSt lines when determining totalAmount.
+3. Dropped commas in OCR: OCR often drops decimal commas before tax letters A/B/4 (e.g., "179A" = 1.79, "378A" = 3.78 or 3.75, "1,19 4" = 1.19). Reconstruct EVERY purchased item so the sum of lineItems[].totalPrice matches totalAmount as closely as possible!
+4. Multi-quantity lines: If a line like "3 x 0,79 =" appears right above an item like "202835 Hummus 200 g 2,37 A", combine them into ONE item with quantity: 3, unitPrice: 0.79, totalPrice: 2.37.
+5. Clean item names: Strip leading 5-6 digit product/SKU numbers (like "434767", "202835") and fix minor OCR spelling errors.`;
 
   const callGroq = async (messages: unknown[]) =>
     fetch('https://api.groq.com/openai/v1/chat/completions', {

@@ -199,7 +199,7 @@ def parse_with_regex(raw_text: str, default_currency: str = "EUR") -> Dict[str, 
         date_str = f"{yr}-{mon}-{day}"
 
     total_re = re.compile(
-        r"\b(zu\s*zahlen|summe|gesamt(?:betrag)?|total|amount\s*due|grand\s*total|kartenzahlung|ec-karte|visa|mastercard|bezahlt|bar)\b[^0-9]*?(\d{1,5}[.,]\d{2})\b",
+        r"\b(zu\s*zahlen|summe|gesamt(?:betrag)?|ald[iy1]\s*preis|total|amount\s*due|grand\s*total|kartenzah[li1]ung|ec-karte|visa|mastercard|bezahlt|bar)\b[^0-9]*?(\d{1,5}[.,]\d{2})\b",
         re.I,
     )
     tax_re = re.compile(r"\b(tax|vat|mwst|ust|tva|gst|steuer)\b[^0-9]*?(\d{1,4}[.,]\d{2})\b", re.I)
@@ -302,8 +302,11 @@ def parse_with_groq(
         '  "summaryNote": "Short 3-6 word summary",\n'
         '  "lineItems": [{"name": "Item", "quantity": 1, "unitPrice": 0.00, "totalPrice": 0.00}]\n'
         "}\n"
-        "Handle European/German receipts (Lidl, Aldi, REWE) where commas are decimals (44,50 = 44.50) "
-        "and totals may be labeled SUMME, zu zahlen, Kartenzahlung, or TOTAL."
+        "CRITICAL RULES:\n"
+        "1. Supermarkets (Aldi, Aldi Süd, Lidl, REWE, EDEKA, Kaufland, Netto, Penny, Tesco, Carrefour) MUST be categorized as 'Groceries' (never 'Shopping').\n"
+        "2. Look for ALDI PREIS / ALDY PREIS / SUMME / zu zahlen / Kartenzahlung / Kartenzahiung / TOTAL.\n"
+        "3. Repair dropped-comma OCR prices before tax letters (e.g. 179A = 1.79, 378A = 3.78/3.75) so lineItems sum to totalAmount.\n"
+        "4. Combine multi-quantity lines (e.g. '3 x 0,79 =' above 'Hummus 2,37 A' -> quantity: 3, unitPrice: 0.79, totalPrice: 2.37) and strip 5-6 digit SKU prefixes."
     )
 
     payload = json.dumps(

@@ -103,27 +103,45 @@ export function parseOCRTextWithRegex(
   const lineItems: LineItem[] = [];
   let explicitTotal = 0;
   let taxAmount: number | undefined;
+  let pendingQty: { qty: number; unitPrice: number } | null = null;
 
   const totalRegex =
-    /\b(zu\s*zahlen|summe|gesamt(?:betrag)?|total|amount\s*due|grand\s*total|kartenzahlung|ec-karte|visa|mastercard|bezahlt|bar)\b[^0-9]*?(\d{1,5}[.,]\d{2})\b/i;
-  const taxRegex = /\b(tax|vat|mwst|ust|tva|gst|steuer)\b[^0-9]*?(\d{1,4}[.,]\d{2})\b/i;
-  const linePriceRegex = /^(.+?)\s+[€$£]?(-?\d{1,4}[.,]\d{2})\s*[A-Z*]?$/;
+    /\b(zu\s*zahlen|summe|gesamt(?:betrag)?|ald[iy1]\s*preis|total|amount\s*due|grand\s*total|kartenzah[li1]ung|ec-karte|visa|mastercard|bezahlt|bar)\b[^0-9]*?(\d{1,5}[.,]\d{2})\b/i;
+  const taxRegex = /\b(tax|vat|mwst|mbst|ust|tva|gst|steuer)\b[^0-9]*?(\d{1,4}[.,]\d{2})\b/i;
+  const qtyHeaderRegex = /^(\d+)\s*[xX*]\s*(\d{1,3}[.,]\d{2})\s*=?$/;
+  // Matches normal decimals ("2,37 A", "1,19 4") OR dropped-comma OCR prices before tax letter ("179A", "378A")
+  const linePriceRegex = /^(.+?)\s+[€$£]?(-?\d{1,4}[.,]\d{2})\s*[A-Z0-9*]?$/;
+  const droppedCommaPriceRegex = /^(.+?)[,\s]+(\d{3,4})\s*[AB]\b$/;
+
+  const nonItemRegex =
+    /\b(subtotal|sub-total|zwischensumme|rückgeld|rueckgeld|change|gegeben|cash|visa|mastercard|card|kartenzah[li1]ung|ald[iy1]\s*preis|artikel|tendered|rabatt|discount|pfand\s*zurück|brutto|netto|mwst|mbst|ust)\b/i;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+
+    const qtyHdr = line.match(qtyHeaderRegex);
+    if (qtyHdr) {
+      pendingQty = {
+        qty: Math.max(1, parseInt(qtyHdr[1], 10)),
+        unitPrice: parseLocalizedNumber(qtyHdr[2]),
+      };
+      continue;
+    }
 
     const tMatch = line.match(totalRegex);
     if (tMatch) {
       const val = parseLocalizedNumber(tMatch[2]);
       if (val > explicitTotal) explicitTotal = val;
+      pendingQty = null;
       continue;
     }
 
-    if (/^(zu\s*zahlen|summe|gesamt|total)\b/i.test(line) && i + 1 < lines.length) {
+    if (/^(zu\s*zahlen|summe|gesamt|ald[iy1]\s*preis|total)\b/i.test(line) && i + 1 < lines.length) {
       const nextNum = lines[i + 1].match(/(\d{1,5}[.,]\d{2})/);
       if (nextNum) {
         const val = parseLocalizedNumber(nextNum[1]);
         if (val > explicitTotal) explicitTotal = val;
+        pendingQty = null;
         continue;
       }
     }
@@ -131,23 +149,36 @@ export function parseOCRTextWithRegex(
     const vatMatch = line.match(taxRegex);
     if (vatMatch) {
       const val = parseLocalizedNumber(vatMatch[2]);
-      if (val > 0) taxAmount = val;
+      if (val > 0 && val < 500) taxAmount = val;
+      pendingQty = null;
       continue;
     }
 
+    let rawName = '';
+    let price = 0;
+
     const itemMatch = line.match(linePriceRegex);
     if (itemMatch) {
-      const rawName = itemMatch[1].replace(/[.*_=-]{2,}/g, ' ').trim();
-      const price = parseLocalizedNumber(itemMatch[2]);
-      if (
-        rawName.length >= 2 &&
-        price > 0 &&
-        price < 5000 &&
-        !/\b(subtotal|sub-total|zwischensumme|rückgeld|rueckgeld|change|gegeben|cash|visa|mastercard|card|tendered|rabatt|discount|pfand\s*zurück|brutto|netto|mwst)\b/i.test(
-          rawName
-        )
-      ) {
-        const qtyPrefix = rawName.match(/^(\d+)\s*[xX*]\s*(.+)$/);
+      rawName = itemMatch[1];
+      price = parseLocalizedNumber(itemMatch[2]);
+    } else {
+      const droppedMatch = line.match(droppedCommaPriceRegex);
+      if (droppedMatch) {
+        rawName = droppedMatch[1];
+        price = parseInt(droppedMatch[2], 10) / 100;
+      }
+    }
+
+    if (rawName && price > 0 && price < 5000 && !nonItemRegex.test(rawName)) {
+      // Strip leading 5-6 digit supermarket article codes (e.g. "202835 Hummus 200 g")
+      const cleanedName = rawName
+        .replace(/^\d{5,7}\s+/, '')
+        .replace(/[.*_=-]{2,}/g, ' ')
+        .replace(/[,;]+$/, '')
+        .trim();
+
+      if (cleanedName.length >= 2) {
+        const qtyPrefix = cleanedName.match(/^(\d+)\s*[xX*]\s*(.+)$/);
         if (qtyPrefix) {
           const qty = Math.max(1, parseInt(qtyPrefix[1], 10));
           lineItems.push({
@@ -156,14 +187,22 @@ export function parseOCRTextWithRegex(
             unitPrice: Number((price / qty).toFixed(2)),
             totalPrice: price,
           });
+        } else if (pendingQty) {
+          lineItems.push({
+            name: cleanedName,
+            quantity: pendingQty.qty,
+            unitPrice: pendingQty.unitPrice,
+            totalPrice: price,
+          });
         } else {
           lineItems.push({
-            name: rawName,
+            name: cleanedName,
             quantity: 1,
             unitPrice: price,
             totalPrice: price,
           });
         }
+        pendingQty = null;
       }
     }
   }
