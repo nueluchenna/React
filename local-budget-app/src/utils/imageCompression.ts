@@ -1,13 +1,15 @@
 /**
  * Client-Side Image Compression Utility
- * Resizes any uploaded/pasted image on an HTML5 <canvas> to max 1200px dimension
- * at 0.75 JPEG quality before saving to IndexedDB or sending to Gemini / OCR.
+ * Preserves horizontal sharpness for tall supermarket receipts (like Lidl/Aldi)
+ * by capping width (default 1400px) and allowing tall heights (up to 4000px)
+ * instead of crushing tall receipts down to unreadable narrow strips.
  */
 
 export async function compressImageToDataUrl(
   source: File | Blob | string,
-  maxDimension = 1200,
-  quality = 0.75
+  maxWidth = 1400,
+  quality = 0.82,
+  maxHeight = 4000
 ): Promise<string> {
   const dataUrl =
     typeof source === 'string' ? source : await blobToDataUrl(source);
@@ -18,14 +20,16 @@ export async function compressImageToDataUrl(
     img.onload = () => {
       try {
         let { width, height } = img;
-        if (width > maxDimension || height > maxDimension) {
-          if (width >= height) {
-            height = Math.round((height * maxDimension) / width);
-            width = maxDimension;
-          } else {
-            width = Math.round((width * maxDimension) / height);
-            height = maxDimension;
-          }
+
+        // First cap width so horizontal text remains crisp
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        // Only cap height if the image is extraordinarily tall
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
         }
 
         const canvas = document.createElement('canvas');
@@ -38,7 +42,6 @@ export async function compressImageToDataUrl(
           return;
         }
 
-        // Fill white background for transparent PNGs
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);

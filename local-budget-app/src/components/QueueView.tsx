@@ -16,6 +16,7 @@ import {
   processSinglePendingReceipt,
   processOfflineQueue,
 } from '../services/receiptQueueService';
+import { ReceiptLabPanel } from './ReceiptLabPanel';
 
 interface QueueViewProps {
   pendingReceipts: PendingReceipt[];
@@ -248,6 +249,9 @@ export const QueueView: React.FC<QueueViewProps> = ({
           })}
         </div>
       )}
+
+      {/* Isolated 3-Stage Receipt Scanner Lab */}
+      <ReceiptLabPanel />
     </div>
   );
 };
