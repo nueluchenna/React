@@ -70,16 +70,13 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
     setAiError(null);
 
     try {
-      // Stage 1: Isolated OCR (with preprocessing + cached worker)
       const ocr = await runReceiptOCR(imageDataUrl, (pct) => setOcrProgress(pct));
       setOcrResult(ocr);
 
-      // Stage 2: Isolated Regex Parser
       const defaultCurrency = await getSetting<string>('defaultCurrency', 'EUR');
       const regexParsed = parseOCRTextWithRegex(ocr.rawText, defaultCurrency);
       setRegexResult(regexParsed);
 
-      // Stage 3: Isolated AI Parser (uses active provider: OpenRouter Direct Vision OR Groq)
       const provider = await getSetting<AIProvider>('aiProvider', 'openrouter');
       const openRouterKey = await getSetting<string>('openRouterApiKey', '');
       const openRouterModel = await getSetting<string>('openRouterModel', DEFAULT_OPENROUTER_MODEL);
@@ -174,26 +171,26 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/80 p-5 space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-start gap-2.5">
-          <div className="p-2 rounded-xl bg-slate-100 text-slate-700 shrink-0">
+    <section className="rounded-3xl bg-[#F2F5F2] p-6 space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-white border border-[#E2E5E0] text-[#163300] flex items-center justify-center shrink-0">
             <FlaskConical className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="font-semibold text-slate-900 text-sm">
-              Receipt Scanner Lab (Isolated Pipeline Inspector)
-            </h3>
-            <p className="text-xs text-slate-500">
-              Compare Stage 1 (Preprocessed OCR), Stage 2 (Regex), and Stage 3 (Groq JSON) side by side without saving to your feed.
+            <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+              Scanner Lab
+            </h2>
+            <p className="text-xs text-[#5D615C] mt-0.5">
+              Inspect Raw OCR, Regex, and AI Vision side by side without saving to your feed.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <label className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium text-xs transition cursor-pointer">
+          <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-[#E8EDE7] text-[#163300] font-semibold text-xs transition cursor-pointer">
             <Upload className="w-3.5 h-3.5" />
-            <span>{imageDataUrl ? 'Change Receipt' : 'Pick Receipt'}</span>
+            <span>{imageDataUrl ? 'Change image' : 'Pick receipt'}</span>
             <input
               type="file"
               accept="image/*"
@@ -206,116 +203,111 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
             type="button"
             disabled={!imageDataUrl || running}
             onClick={() => void handleRunIsolatedStages()}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-semibold text-xs transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#163300] hover:bg-[#1F4403] disabled:opacity-40 text-white font-semibold text-xs transition cursor-pointer"
           >
             {running ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
               <Play className="w-3.5 h-3.5" />
             )}
-            <span>{running ? `Running (${ocrProgress}%)...` : 'Run 3-Stage Test'}</span>
+            <span>{running ? `Running (${ocrProgress}%)...` : 'Run 3-stage test'}</span>
           </button>
         </div>
       </div>
 
-      {/* Original vs Preprocessed Image Strip */}
       {imageDataUrl && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <div className="rounded-xl border border-slate-200 p-2.5 bg-slate-50">
-            <div className="text-[11px] font-semibold text-slate-500 mb-1.5">
-              Original (Width-Preserved JPEG)
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="rounded-2xl bg-white p-3.5">
+            <div className="text-[11px] font-semibold text-[#5D615C] mb-2">
+              Original (width-preserved)
             </div>
             <img
               src={imageDataUrl}
               alt="Original receipt"
-              className="max-h-56 w-auto mx-auto rounded-lg object-contain"
+              className="max-h-56 w-auto mx-auto rounded-xl object-contain"
             />
           </div>
 
-          <div className="rounded-xl border border-slate-200 p-2.5 bg-slate-50">
-            <div className="text-[11px] font-semibold text-slate-500 mb-1.5">
-              Stage 1 Preprocessed (Grayscale + Auto-Contrast)
+          <div className="rounded-2xl bg-white p-3.5">
+            <div className="text-[11px] font-semibold text-[#5D615C] mb-2">
+              Preprocessed (grayscale + contrast)
             </div>
             {ocrResult?.preprocessedDataUrl ? (
               <img
                 src={ocrResult.preprocessedDataUrl}
                 alt="Preprocessed receipt"
-                className="max-h-56 w-auto mx-auto rounded-lg object-contain"
+                className="max-h-56 w-auto mx-auto rounded-xl object-contain"
               />
             ) : (
-              <div className="h-44 flex items-center justify-center text-xs text-slate-400">
-                Click &quot;Run 3-Stage Test&quot; to inspect preprocessed image
+              <div className="h-44 flex items-center justify-center text-xs text-[#868A84]">
+                Run test to preview preprocessed image
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* 3 Isolated Output Columns */}
       {(ocrResult || regexResult || aiResult || aiError) && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 pt-1">
-          {/* Stage 1: Raw OCR */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 flex flex-col">
-            <div className="flex items-center justify-between mb-2">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800">
-                <ScanText className="w-3.5 h-3.5 text-slate-500" />
-                <span>1. Raw OCR Text</span>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="rounded-2xl bg-white p-4 flex flex-col">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0E0F0C]">
+                <ScanText className="w-3.5 h-3.5 text-[#5D615C]" />
+                <span>1. Raw OCR</span>
               </span>
               {ocrResult && (
-                <span className="text-[10px] font-mono text-slate-500">
-                  {ocrResult.durationMs}ms • {ocrResult.confidence}% conf
+                <span className="text-[10px] font-mono text-[#6A6C6A]">
+                  {ocrResult.durationMs}ms · {ocrResult.confidence}%
                 </span>
               )}
             </div>
-            <pre className="text-[11px] font-mono text-slate-700 bg-white border border-slate-200 rounded-lg p-2.5 overflow-auto max-h-72 whitespace-pre-wrap">
+            <pre className="text-[11px] font-mono text-[#0E0F0C] bg-[#FAFBF9] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
               {ocrResult?.rawText || '(empty OCR text)'}
             </pre>
           </div>
 
-          {/* Stage 2: Regex Heuristic Output */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 flex flex-col">
-            <div className="flex items-center justify-between mb-2">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800">
-                <Code2 className="w-3.5 h-3.5 text-amber-600" />
-                <span>2. Regex Parser</span>
+          <div className="rounded-2xl bg-white p-4 flex flex-col">
+            <div className="flex items-center justify-between mb-2.5">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0E0F0C]">
+                <Code2 className="w-3.5 h-3.5 text-[#5D615C]" />
+                <span>2. Regex</span>
               </span>
               {regexResult && (
-                <span className="text-[10px] font-mono text-slate-500">
-                  {regexResult.durationMs}ms • Total: {regexResult.totalAmount}
+                <span className="text-[10px] font-mono text-[#6A6C6A]">
+                  {regexResult.durationMs}ms · {regexResult.totalAmount}
                 </span>
               )}
             </div>
-            <pre className="text-[11px] font-mono text-slate-700 bg-white border border-slate-200 rounded-lg p-2.5 overflow-auto max-h-72 whitespace-pre-wrap">
+            <pre className="text-[11px] font-mono text-[#0E0F0C] bg-[#FAFBF9] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
               {regexResult ? JSON.stringify(regexResult, null, 2) : '—'}
             </pre>
           </div>
 
-          {/* Stage 3: AI Output (OpenRouter Vision or Groq) */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 flex flex-col">
-            <div className="flex items-center justify-between mb-2 gap-2">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800 truncate">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+          <div className="rounded-2xl bg-white p-4 flex flex-col">
+            <div className="flex items-center justify-between mb-2.5 gap-2">
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0E0F0C] truncate">
+                <Sparkles className="w-3.5 h-3.5 text-[#2F5711] shrink-0" />
                 <span className="truncate">3. {aiResult?.providerLabel || 'AI Output'}</span>
               </span>
               {aiResult && (
-                <span className="text-[10px] font-mono text-slate-500 shrink-0">
-                  {aiResult.durationMs}ms • {aiResult.modeLabel}
+                <span className="text-[10px] font-mono text-[#6A6C6A] shrink-0">
+                  {aiResult.durationMs}ms · {aiResult.modeLabel}
                 </span>
               )}
             </div>
             {aiError ? (
-              <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-start gap-1.5">
+              <div className="p-3 rounded-xl bg-[#FDECEC] text-xs text-[#A8200D] flex items-start gap-1.5">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span className="break-words">{aiError}</span>
               </div>
             ) : (
-              <pre className="text-[11px] font-mono text-slate-700 bg-white border border-slate-200 rounded-lg p-2.5 overflow-auto max-h-72 whitespace-pre-wrap">
+              <pre className="text-[11px] font-mono text-[#0E0F0C] bg-[#FAFBF9] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
                 {aiResult ? JSON.stringify(aiResult.data, null, 2) : '—'}
               </pre>
             )}
           </div>
         </div>
       )}
-    </div>
+    </section>
   );
 };

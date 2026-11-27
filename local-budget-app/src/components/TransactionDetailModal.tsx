@@ -4,7 +4,6 @@ import {
   Trash2,
   Plus,
   Minus,
-  Save,
   Receipt,
   Calculator,
   ZoomIn,
@@ -14,7 +13,6 @@ import {
 import {
   db,
   SPENDEE_CATEGORIES,
-  CATEGORY_META,
   formatCurrency,
   type Transaction,
   type LineItem,
@@ -66,6 +64,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
   );
   const [zoomReceipt, setZoomReceipt] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [activeMobileTab, setActiveMobileTab] = useState<'details' | 'receipt'>('details');
 
   const parseNum = (str: string) => {
     const n = parseFloat(str.replace(',', '.'));
@@ -139,7 +138,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
   const handleReplaceReceiptImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const compressed = await compressImageToDataUrl(file, 1200, 0.78);
+    const compressed = await compressImageToDataUrl(file, 1400, 0.82);
     setReceiptImageDataUrl(compressed);
   };
 
@@ -195,60 +194,93 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
     onClose();
   };
 
-  const meta = CATEGORY_META[category] || CATEGORY_META.Other;
-
   return (
     <div
-      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 overflow-y-auto"
+      className="fixed inset-0 z-50 bg-[#0E0F0C]/40 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-5 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden my-auto"
+        className="bg-white rounded-t-3xl sm:rounded-3xl max-w-4xl w-full max-h-[94vh] flex flex-col shadow-2xl overflow-hidden my-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span
-              className={`w-9 h-9 rounded-xl ${meta.bgLight} ${meta.textColor} flex items-center justify-center`}
-            >
-              <CategoryIcon category={category} className="w-4 h-4" />
-            </span>
-            <div>
-              <h3 className="font-semibold text-slate-900 text-sm sm:text-base">
-                {merchant || 'Transaction Details'}
-              </h3>
-              <p className="text-xs text-slate-500">
-                Inspect receipt image and edit itemized quantities or prices
-              </p>
-            </div>
-          </div>
-
+        {/* Wise-Style Centered Soft-Stone Summary Header */}
+        <div className="relative bg-[#F2F5F2] px-6 pt-6 pb-7 text-center">
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer"
+            aria-label="Close"
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-[#E5EAE4] hover:bg-[#DAE1D8] text-[#163300] flex items-center justify-center transition cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
+
+          <div className="w-12 h-12 rounded-full border border-[#D8DED6] bg-white text-[#163300] flex items-center justify-center mx-auto mb-3">
+            <CategoryIcon category={category} className="w-5 h-5" />
+          </div>
+
+          <div className="text-xs font-medium text-[#5D615C]">
+            {type === 'income' ? 'Received from' : 'Paid to'} {merchant || 'Merchant'}
+          </div>
+          <div className="text-3xl font-display font-extrabold tabular-nums text-[#0E0F0C] mt-1">
+            {type === 'income' ? '+' : '-'}
+            {formatCurrency(parseNum(amount), currency)}
+          </div>
+
+          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-[#E2E5E0] text-xs font-medium text-[#5D615C]">
+            <span>{category}</span>
+            <span>·</span>
+            <span>{date}</span>
+          </div>
         </div>
 
-        {/* Body */}
-        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-4 sm:p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Column: Receipt Image */}
-            <div className="lg:col-span-5 flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
-                  <Receipt className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Receipt Image</span>
+        {/* Mobile Segmented Switch (Wise "Updates | Details" Style) */}
+        <div className="lg:hidden px-5 pt-4">
+          <div className="grid grid-cols-2 rounded-full bg-[#EDF0EC] p-1 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab('details')}
+              className={`py-2 rounded-full transition cursor-pointer ${
+                activeMobileTab === 'details'
+                  ? 'bg-white text-[#163300] shadow-2xs'
+                  : 'text-[#5D615C]'
+              }`}
+            >
+              Details & items
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMobileTab('receipt')}
+              className={`py-2 rounded-full transition cursor-pointer ${
+                activeMobileTab === 'receipt'
+                  ? 'bg-white text-[#163300] shadow-2xs'
+                  : 'text-[#5D615C]'
+              }`}
+            >
+              Receipt photo
+            </button>
+          </div>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSave} className="flex-1 overflow-y-auto p-5 sm:p-7">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-7">
+            {/* Receipt Column */}
+            <div
+              className={`lg:col-span-5 flex flex-col ${
+                activeMobileTab === 'receipt' ? 'flex' : 'hidden lg:flex'
+              }`}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-semibold text-[#5D615C] flex items-center gap-1.5">
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>Receipt photo</span>
                 </span>
                 <div className="flex items-center gap-1.5">
                   {receiptImageDataUrl && (
                     <button
                       type="button"
                       onClick={() => setZoomReceipt((z) => !z)}
-                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] font-medium cursor-pointer"
                     >
                       {zoomReceipt ? (
                         <ZoomOut className="w-3.5 h-3.5" />
@@ -258,7 +290,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                       <span>{zoomReceipt ? 'Fit' : 'Zoom'}</span>
                     </button>
                   )}
-                  <label className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium cursor-pointer">
+                  <label className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] font-medium cursor-pointer">
                     <Upload className="w-3.5 h-3.5" />
                     <span>{receiptImageDataUrl ? 'Replace' : 'Attach'}</span>
                     <input
@@ -272,25 +304,25 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               </div>
 
               {receiptImageDataUrl ? (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 overflow-auto max-h-[440px] flex items-center justify-center p-2">
+                <div className="rounded-2xl bg-[#F2F5F2] overflow-auto max-h-[420px] flex items-center justify-center p-3">
                   <img
                     src={receiptImageDataUrl}
                     alt={`Receipt from ${merchant}`}
-                    className={`rounded-lg transition-all ${
+                    className={`rounded-xl transition-all ${
                       zoomReceipt
                         ? 'w-[165%] max-w-none'
-                        : 'max-h-[410px] w-auto object-contain'
+                        : 'max-h-[390px] w-auto object-contain'
                     }`}
                   />
                 </div>
               ) : (
-                <label className="flex-1 min-h-[220px] rounded-xl border border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100/70 transition flex flex-col items-center justify-center p-6 text-center cursor-pointer">
-                  <Receipt className="w-8 h-8 text-slate-300 mb-2" />
-                  <span className="text-xs font-medium text-slate-600">
-                    No receipt image attached
+                <label className="flex-1 min-h-[220px] rounded-2xl border border-dashed border-[#D2D7D0] bg-[#FAFBF9] hover:bg-[#F2F5F2] transition flex flex-col items-center justify-center p-6 text-center cursor-pointer">
+                  <Receipt className="w-7 h-7 text-[#868A84] mb-2" strokeWidth={1.6} />
+                  <span className="text-xs font-semibold text-[#0E0F0C]">
+                    No receipt attached
                   </span>
-                  <span className="text-[11px] text-slate-400 mt-1">
-                    Click to attach a photo
+                  <span className="text-xs text-[#6A6C6A] mt-1">
+                    Tap to attach a photo
                   </span>
                   <input
                     type="file"
@@ -302,11 +334,15 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
               )}
             </div>
 
-            {/* Right Column: Editable Fields & Line Items */}
-            <div className="lg:col-span-7 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Details & Line Items Column */}
+            <div
+              className={`lg:col-span-7 space-y-5 ${
+                activeMobileTab === 'details' ? 'block' : 'hidden lg:block'
+              }`}
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
                     Merchant
                   </label>
                   <input
@@ -314,13 +350,13 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                     value={merchant}
                     onChange={(e) => setMerchant(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:border-emerald-600"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F2F5F2] text-sm font-medium text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">
+                    <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
                       Total ({currency})
                     </label>
                     <input
@@ -329,11 +365,11 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       required
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-bold tabular-nums text-slate-900 focus:outline-none focus:border-emerald-600"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F2F5F2] text-sm font-bold tabular-nums text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-600 mb-1">
+                    <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
                       Tax / VAT
                     </label>
                     <input
@@ -342,21 +378,21 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                       value={taxAmount}
                       onChange={(e) => setTaxAmount(e.target.value)}
                       placeholder="0.00"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm tabular-nums focus:outline-none focus:border-emerald-600"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-[#F2F5F2] text-sm tabular-nums text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
                     Category
                   </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value as SpendeeCategory)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:border-emerald-600"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F2F5F2] text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
                   >
                     {SPENDEE_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
@@ -367,7 +403,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
                     Date
                   </label>
                   <input
@@ -375,19 +411,19 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
                     required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-600"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F2F5F2] text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                  <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
                     Type & Currency
                   </label>
-                  <div className="flex gap-1.5">
+                  <div className="flex gap-2">
                     <select
                       value={type}
                       onChange={(e) => setType(e.target.value as 'expense' | 'income')}
-                      className="flex-1 px-2.5 py-2 rounded-xl border border-slate-200 text-sm bg-white"
+                      className="flex-1 px-3 py-2.5 rounded-xl bg-[#F2F5F2] text-sm text-[#0E0F0C]"
                     >
                       <option value="expense">Expense</option>
                       <option value="income">Income</option>
@@ -397,14 +433,14 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                       maxLength={3}
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                      className="w-14 px-2 py-2 rounded-xl border border-slate-200 text-sm text-center font-medium uppercase"
+                      className="w-14 px-2 py-2.5 rounded-xl bg-[#F2F5F2] text-sm text-center font-semibold uppercase"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-600 mb-1">
+                <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
                   Note
                 </label>
                 <input
@@ -412,22 +448,22 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Summary note..."
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-600"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#F2F5F2] text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
                 />
               </div>
 
-              {/* Editable Itemized Line Items Table */}
-              <div className="pt-1">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-semibold text-slate-700">
-                    Line Items ({items.length})
+              {/* Itemized Line Items */}
+              <div className="pt-2 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-[#0E0F0C]">
+                    Line items ({items.length})
                   </span>
                   <div className="flex items-center gap-2">
                     {items.length > 0 && (
                       <button
                         type="button"
                         onClick={recalculateTotalFromItems}
-                        className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium cursor-pointer"
+                        className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] font-medium cursor-pointer"
                       >
                         <Calculator className="w-3.5 h-3.5" />
                         <span>Sum to total</span>
@@ -436,7 +472,7 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                     <button
                       type="button"
                       onClick={handleAddLineItem}
-                      className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-medium cursor-pointer"
+                      className="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] font-semibold cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add item</span>
@@ -444,24 +480,24 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                   </div>
                 </div>
 
-                <div className="rounded-xl border border-slate-200 overflow-hidden">
+                <div className="rounded-2xl bg-[#FAFBF9] border border-[#ECEFEA] overflow-hidden">
                   {items.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-slate-500 bg-slate-50">
-                      No line items recorded. Click "Add item" to itemize.
+                    <div className="p-5 text-center text-xs text-[#6A6C6A]">
+                      No line items yet. Click &quot;Add item&quot; to itemize this receipt.
                     </div>
                   ) : (
                     <>
-                      <div className="px-2.5 py-1.5 bg-slate-50 border-b border-slate-200 grid grid-cols-12 gap-2 text-[11px] font-medium text-slate-500">
+                      <div className="px-3 py-2 bg-[#F2F5F2] grid grid-cols-12 gap-2 text-[11px] font-semibold text-[#5D615C]">
                         <div className="col-span-5">Item</div>
                         <div className="col-span-3 text-center">Qty</div>
                         <div className="col-span-3 text-right">Total</div>
                         <div className="col-span-1" />
                       </div>
-                      <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
+                      <div className="max-h-56 overflow-y-auto divide-y divide-[#ECEFEA]">
                         {items.map((item, idx) => (
                           <div
                             key={idx}
-                            className="p-2 grid grid-cols-12 gap-1.5 items-center bg-white"
+                            className="p-2.5 grid grid-cols-12 gap-1.5 items-center bg-white"
                           >
                             <div className="col-span-5">
                               <input
@@ -471,14 +507,14 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                                   handleItemFieldChange(idx, 'name', e.target.value)
                                 }
                                 placeholder="Item name"
-                                className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600"
+                                className="w-full px-2.5 py-1.5 text-xs rounded-lg bg-[#F7F9F7] text-[#0E0F0C] focus:outline-none focus:ring-1 focus:ring-[#163300]/25"
                               />
                             </div>
                             <div className="col-span-3 flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => stepQuantity(idx, -1)}
-                                className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer shrink-0"
+                                className="p-1 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] cursor-pointer shrink-0"
                                 title="Decrease quantity"
                               >
                                 <Minus className="w-3 h-3" />
@@ -491,12 +527,12 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                                   handleItemFieldChange(idx, 'qtyStr', e.target.value)
                                 }
                                 title="Quantity"
-                                className="w-full px-1 py-1 text-xs text-center tabular-nums rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600"
+                                className="w-full px-1 py-1 text-xs text-center tabular-nums rounded-lg bg-[#F7F9F7] text-[#0E0F0C] focus:outline-none focus:ring-1 focus:ring-[#163300]/25"
                               />
                               <button
                                 type="button"
                                 onClick={() => stepQuantity(idx, 1)}
-                                className="p-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer shrink-0"
+                                className="p-1 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] cursor-pointer shrink-0"
                                 title="Increase quantity"
                               >
                                 <Plus className="w-3 h-3" />
@@ -511,14 +547,14 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
                                   handleItemFieldChange(idx, 'totalStr', e.target.value)
                                 }
                                 title="Line Total"
-                                className="w-full px-2 py-1.5 text-xs font-semibold tabular-nums rounded-lg border border-slate-200 text-right focus:outline-none focus:border-emerald-600"
+                                className="w-full px-2.5 py-1.5 text-xs font-semibold tabular-nums rounded-lg bg-[#F7F9F7] text-[#0E0F0C] text-right focus:outline-none focus:ring-1 focus:ring-[#163300]/25"
                               />
                             </div>
                             <div className="col-span-1 flex justify-end">
                               <button
                                 type="button"
                                 onClick={() => handleRemoveLineItem(idx)}
-                                className="p-1 text-slate-400 hover:text-rose-600 rounded-md cursor-pointer"
+                                className="p-1 text-[#868A84] hover:text-[#A8200D] rounded-full cursor-pointer"
                                 title="Remove item"
                               >
                                 <X className="w-3.5 h-3.5" />
@@ -534,34 +570,31 @@ export const TransactionDetailModal: React.FC<TransactionDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Footer */}
-          <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+          {/* Wise-Style Pill Footer Actions */}
+          <div className="mt-8 pt-5 border-t border-[#ECEFEA] flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <button
               type="button"
               onClick={handleDelete}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-medium text-xs sm:text-sm transition cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-[#FDECEC] hover:bg-[#FADADA] text-[#A8200D] font-semibold text-sm transition cursor-pointer"
             >
               <Trash2 className="w-4 h-4" />
-              <span>Delete</span>
+              <span>Delete transaction</span>
             </button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium text-xs sm:text-sm transition cursor-pointer"
+                className="flex-1 sm:flex-initial px-5 py-2.5 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] font-semibold text-sm transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm shadow-xs transition cursor-pointer"
+                className="flex-1 sm:flex-initial px-6 py-2.5 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-sm transition cursor-pointer"
               >
-                <Save className="w-4 h-4" />
-                <span>
-                  {saving ? 'Saving...' : `Save (${formatCurrency(parseNum(amount), currency)})`}
-                </span>
+                {saving ? 'Saving...' : 'Save changes'}
               </button>
             </div>
           </div>

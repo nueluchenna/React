@@ -110,9 +110,8 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
-      <div className="bg-slate-900 text-white rounded-2xl max-w-lg w-full overflow-hidden border border-slate-800 shadow-2xl">
-        {/* Hidden native mobile camera fallback */}
+    <div className="fixed inset-0 z-50 bg-[#0E0F0C]/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
+      <div className="bg-[#0E0F0C] text-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl">
         <input
           ref={fallbackInputRef}
           type="file"
@@ -122,11 +121,8 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
           className="hidden"
         />
 
-        <div className="px-4 py-3.5 flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center gap-2">
-            <Camera className="w-4 h-4 text-emerald-400" />
-            <span className="font-semibold text-sm">Capture Receipt</span>
-          </div>
+        <div className="px-5 py-4 flex items-center justify-between">
+          <span className="font-display font-bold text-sm">Scan receipt</span>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -134,14 +130,14 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
                 setFacingMode((m) => (m === 'environment' ? 'user' : 'environment'))
               }
               title="Switch camera"
-              className="p-2 rounded-lg text-slate-300 hover:bg-slate-800 transition cursor-pointer"
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
             >
               <SwitchCamera className="w-4 h-4" />
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-lg text-slate-300 hover:bg-slate-800 transition cursor-pointer"
+              className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
@@ -150,16 +146,16 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
 
         <div className="relative bg-black aspect-[3/4] sm:aspect-[4/3] flex items-center justify-center overflow-hidden">
           {error ? (
-            <div className="p-6 text-center space-y-3 max-w-xs">
-              <AlertCircle className="w-8 h-8 text-amber-400 mx-auto" />
-              <p className="text-xs text-slate-300 leading-relaxed">{error}</p>
+            <div className="p-8 text-center space-y-4 max-w-xs">
+              <AlertCircle className="w-8 h-8 text-[#9FE870] mx-auto" />
+              <p className="text-xs text-white/75 leading-relaxed">{error}</p>
               <button
                 type="button"
                 onClick={() => fallbackInputRef.current?.click()}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] text-xs font-semibold transition cursor-pointer"
               >
                 <Upload className="w-4 h-4" />
-                <span>Open System Camera / Picker</span>
+                <span>Open system camera</span>
               </button>
             </div>
           ) : (
@@ -170,35 +166,34 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
                 muted
                 className="w-full h-full object-cover"
               />
-              {/* Subtle receipt framing guide */}
-              <div className="pointer-events-none absolute inset-6 border border-white/30 rounded-xl" />
+              <div className="pointer-events-none absolute inset-6 border border-white/30 rounded-2xl" />
             </>
           )}
         </div>
 
-        <div className="p-4 flex items-center justify-between gap-3 bg-slate-900">
+        <div className="p-5 flex items-center justify-between gap-3 bg-[#0E0F0C]">
           <button
             type="button"
             onClick={() => fallbackInputRef.current?.click()}
-            className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 transition cursor-pointer"
+            className="px-4 py-2 rounded-full bg-white/10 hover:bg-white/15 text-xs font-semibold text-white transition cursor-pointer"
           >
-            Native Camera
+            Native camera
           </button>
 
           <button
             type="button"
             disabled={!ready || Boolean(error)}
             onClick={handleTakePhoto}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-sm font-semibold shadow-md transition cursor-pointer"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] disabled:opacity-40 text-[#163300] text-sm font-semibold transition cursor-pointer"
           >
             <Camera className="w-4 h-4" />
-            <span>Snap Receipt</span>
+            <span>Capture</span>
           </button>
 
           <button
             type="button"
             onClick={onClose}
-            className="px-3.5 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white transition cursor-pointer"
+            className="px-4 py-2 rounded-full text-xs font-medium text-white/60 hover:text-white transition cursor-pointer"
           >
             Cancel
           </button>

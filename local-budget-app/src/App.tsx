@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  Receipt,
-  PieChart,
+  Home,
+  BarChart2,
   Plus,
   Clock,
-  Settings,
+  SlidersHorizontal,
   Camera,
   CheckCircle2,
   AlertCircle,
@@ -239,7 +239,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f8fa] text-slate-900 flex flex-col">
+    <div className="min-h-screen bg-white text-[#0E0F0C] flex flex-col">
       <input
         ref={fileInputRef}
         type="file"
@@ -249,51 +249,54 @@ export default function App() {
         className="hidden"
       />
 
-      {/* Minimal, Clean Sticky Header */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/70">
-        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
-          {/* Brand */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center text-white font-bold text-sm">
-              M
+      {/* Minimal Wise/Revolut Top Bar */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md">
+        <div className="max-w-4xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-4">
+          {/* Manni Brand Identity Mark */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('feed')}
+            className="flex items-center gap-2.5 cursor-pointer group"
+          >
+            <div className="w-9 h-9 rounded-full bg-[#9FE870] flex items-center justify-center transition-transform group-hover:scale-105">
+              <svg
+                viewBox="0 0 24 24"
+                className="w-4 h-4 fill-[#163300]"
+                aria-hidden="true"
+              >
+                <path d="M3.5 19V5h3.2L12 13.4 17.3 5h3.2v14h-3v-8.8L13.1 17h-2.2L6.5 10.2V19h-3Z" />
+              </svg>
             </div>
-            <span className="font-bold text-slate-900 text-base tracking-tight">
-              Manni
+            <span className="font-display font-extrabold text-[#163300] text-lg tracking-tight">
+              manni
             </span>
-          </div>
+          </button>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-1">
+          {/* Desktop Navigation Pills */}
+          <nav className="hidden md:flex items-center gap-1.5">
             {(
               [
-                { id: 'feed', label: 'Feed', icon: Receipt },
-                { id: 'analytics', label: 'Analytics', icon: PieChart },
-                {
-                  id: 'queue',
-                  label: 'Queue',
-                  icon: Clock,
-                  badge: pendingReceipts.length,
-                },
-                { id: 'settings', label: 'Settings', icon: Settings },
+                { id: 'feed', label: 'Home' },
+                { id: 'analytics', label: 'Analytics' },
+                { id: 'queue', label: 'Queue', badge: pendingReceipts.length },
+                { id: 'settings', label: 'Settings' },
               ] as const
             ).map((item) => {
-              const Icon = item.icon;
               const active = activeTab === item.id;
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => setActiveTab(item.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
+                  className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm transition cursor-pointer ${
                     active
-                      ? 'bg-slate-100 text-slate-900 font-semibold'
-                      : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                      ? 'bg-[#EDF0EC] text-[#163300] font-semibold'
+                      : 'text-[#5D615C] hover:text-[#0E0F0C] hover:bg-[#F7F8F6] font-medium'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
                   <span>{item.label}</span>
                   {'badge' in item && item.badge ? (
-                    <span className="px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#163300] text-[#9FE870] text-[10px] font-bold">
                       {item.badge}
                     </span>
                   ) : null}
@@ -302,20 +305,20 @@ export default function App() {
             })}
           </nav>
 
-          {/* Compact Status Toggle */}
+          {/* Compact Wise-style Connection Status Pill */}
           <button
             type="button"
             onClick={handleToggleSimulateOffline}
             title="Toggle simulated offline mode"
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition cursor-pointer ${
+            className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
               isEffectivelyOffline
-                ? 'bg-amber-50 text-amber-800 border-amber-200'
-                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                ? 'bg-[#FDECEC] text-[#A8200D]'
+                : 'bg-[#EDF0EC] text-[#163300] hover:bg-[#E2E7E0]'
             }`}
           >
             <span
               className={`w-2 h-2 rounded-full ${
-                isEffectivelyOffline ? 'bg-amber-500' : 'bg-emerald-500'
+                isEffectivelyOffline ? 'bg-[#A8200D]' : 'bg-[#2F5711]'
               }`}
             />
             <span>{isEffectivelyOffline ? 'Offline' : 'Online'}</span>
@@ -323,40 +326,38 @@ export default function App() {
         </div>
       </header>
 
-      {/* Toast Notifications with Undo support */}
+      {/* Clean Floating Toast Notifications */}
       {toasts.length > 0 && (
-        <div className="fixed top-16 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+        <div className="fixed top-20 right-5 z-50 flex flex-col gap-2.5 max-w-sm w-[calc(100%-2.5rem)] pointer-events-none">
           {toasts.map((t) => (
             <div
               key={t.id}
-              className={`pointer-events-auto flex items-start justify-between gap-2.5 p-3 rounded-xl shadow-lg border transition-all ${
+              className={`pointer-events-auto flex items-start justify-between gap-3 px-4 py-3.5 rounded-2xl shadow-lg transition-all ${
                 t.type === 'error'
-                  ? 'bg-rose-950 text-white border-rose-800'
+                  ? 'bg-[#A8200D] text-white'
                   : t.type === 'warning'
-                  ? 'bg-amber-950 text-amber-50 border-amber-700'
-                  : t.type === 'queued'
-                  ? 'bg-slate-900 text-amber-100 border-slate-700'
-                  : 'bg-slate-900 text-white border-slate-800'
+                  ? 'bg-[#163300] text-[#EBF6E2]'
+                  : 'bg-[#163300] text-white'
               }`}
             >
-              <div className="flex items-start gap-2 text-xs">
+              <div className="flex items-start gap-2.5 text-xs leading-relaxed">
                 {t.type === 'error' || t.type === 'warning' ? (
-                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <AlertCircle className="w-4 h-4 text-[#9FE870] shrink-0 mt-0.5" />
                 ) : t.type === 'queued' ? (
-                  <Clock className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                  <Clock className="w-4 h-4 text-[#9FE870] shrink-0 mt-0.5" />
                 ) : (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-4 h-4 text-[#9FE870] shrink-0 mt-0.5" />
                 )}
-                <div className="space-y-1">
-                  <div className="font-medium leading-snug">{t.message}</div>
+                <div className="space-y-1.5">
+                  <div className="font-medium">{t.message}</div>
                   {t.undoTransaction && (
                     <button
                       type="button"
                       onClick={() => void handleUndoDelete(t.undoTransaction!, t.id)}
-                      className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-semibold underline cursor-pointer"
+                      className="inline-flex items-center gap-1 text-[#9FE870] hover:underline font-semibold cursor-pointer"
                     >
                       <RotateCcw className="w-3 h-3" />
-                      <span>Undo Delete</span>
+                      <span>Undo delete</span>
                     </button>
                   )}
                 </div>
@@ -364,17 +365,17 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setToasts((prev) => prev.filter((item) => item.id !== t.id))}
-                className="text-slate-400 hover:text-white p-0.5 cursor-pointer shrink-0"
+                className="text-white/60 hover:text-white p-0.5 cursor-pointer shrink-0"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           ))}
         </div>
       )}
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 pt-5">
+      {/* Spacious Main Content Canvas */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-5 sm:px-8 pt-6 sm:pt-10">
         {activeTab === 'feed' && (
           <TransactionFeed
             transactions={transactions}
@@ -431,44 +432,47 @@ export default function App() {
         )}
       </main>
 
-      {/* Mobile Add / Scan Action Sheet */}
+      {/* Mobile Add / Scan Bottom Sheet */}
       {showAddActionMenu && (
         <div
-          className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs flex items-end justify-center pb-20 sm:pb-8"
+          className="fixed inset-0 z-40 bg-[#0E0F0C]/35 backdrop-blur-xs flex items-end justify-center p-4 pb-24 sm:pb-8"
           onClick={() => setShowAddActionMenu(false)}
         >
           <div
-            className="bg-white rounded-2xl p-3 shadow-xl border border-slate-200 w-full max-w-xs mx-4 space-y-1.5"
+            className="bg-white rounded-3xl p-4 shadow-2xl w-full max-w-sm space-y-2"
             onClick={(e) => e.stopPropagation()}
           >
+            <div className="px-3 pt-1 pb-2 text-xs font-semibold text-[#5D615C]">
+              Quick actions
+            </div>
             <button
               type="button"
               onClick={() => {
                 setShowAddActionMenu(false);
                 setShowCameraModal(true);
               }}
-              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 text-slate-900 font-medium text-sm transition cursor-pointer"
+              className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-sm transition cursor-pointer"
             >
-              <Camera className="w-4 h-4 text-emerald-600" />
-              <span>Take Receipt Photo</span>
+              <Camera className="w-4 h-4" />
+              <span>Scan receipt with camera</span>
             </button>
 
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 text-slate-900 font-medium text-sm transition cursor-pointer"
+              className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-[#F2F5F2] hover:bg-[#E8EDE7] text-[#0E0F0C] font-medium text-sm transition cursor-pointer"
             >
-              <Upload className="w-4 h-4 text-slate-600" />
-              <span>Upload Receipt Image</span>
+              <Upload className="w-4 h-4 text-[#163300]" />
+              <span>Upload receipt photo</span>
             </button>
 
             <button
               type="button"
               onClick={handleClipboardButtonPaste}
-              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 text-slate-900 font-medium text-sm transition cursor-pointer"
+              className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-[#F2F5F2] hover:bg-[#E8EDE7] text-[#0E0F0C] font-medium text-sm transition cursor-pointer"
             >
-              <ClipboardPaste className="w-4 h-4 text-slate-600" />
-              <span>Paste Screenshot</span>
+              <ClipboardPaste className="w-4 h-4 text-[#163300]" />
+              <span>Paste screenshot</span>
             </button>
 
             <button
@@ -477,59 +481,65 @@ export default function App() {
                 setShowAddActionMenu(false);
                 setShowManualModal(true);
               }}
-              className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 text-slate-900 font-medium text-sm transition cursor-pointer"
+              className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-[#F2F5F2] hover:bg-[#E8EDE7] text-[#0E0F0C] font-medium text-sm transition cursor-pointer"
             >
-              <Plus className="w-4 h-4 text-slate-600" />
-              <span>Manual Entry</span>
+              <Plus className="w-4 h-4 text-[#163300]" />
+              <span>Add manual transaction</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* Sticky Mobile Bottom Nav */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-1.5 flex items-center justify-around">
+      {/* Flat Wise-Style Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#ECEFEA] px-3 py-2 flex items-center justify-around">
         <button
           type="button"
           onClick={() => setActiveTab('feed')}
-          className={`flex flex-col items-center py-1 px-3 rounded-xl text-[11px] font-medium cursor-pointer ${
-            activeTab === 'feed' ? 'text-slate-900 font-semibold' : 'text-slate-400'
+          className={`flex flex-col items-center gap-1 py-1 px-3 text-[11px] cursor-pointer transition ${
+            activeTab === 'feed'
+              ? 'text-[#163300] font-semibold'
+              : 'text-[#6A6C6A] font-medium'
           }`}
         >
-          <Receipt className="w-5 h-5 mb-0.5" />
-          <span>Feed</span>
+          <Home className="w-5 h-5" strokeWidth={activeTab === 'feed' ? 2.2 : 1.7} />
+          <span>Home</span>
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('analytics')}
-          className={`flex flex-col items-center py-1 px-3 rounded-xl text-[11px] font-medium cursor-pointer ${
-            activeTab === 'analytics' ? 'text-slate-900 font-semibold' : 'text-slate-400'
+          className={`flex flex-col items-center gap-1 py-1 px-3 text-[11px] cursor-pointer transition ${
+            activeTab === 'analytics'
+              ? 'text-[#163300] font-semibold'
+              : 'text-[#6A6C6A] font-medium'
           }`}
         >
-          <PieChart className="w-5 h-5 mb-0.5" />
+          <BarChart2 className="w-5 h-5" strokeWidth={activeTab === 'analytics' ? 2.2 : 1.7} />
           <span>Analytics</span>
         </button>
 
         <button
           type="button"
           onClick={() => setShowAddActionMenu((v) => !v)}
-          className="flex items-center justify-center -mt-4 w-12 h-12 rounded-full bg-emerald-600 text-white shadow-md cursor-pointer"
-          aria-label="Add or scan"
+          className="flex items-center justify-center w-11 h-11 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] transition cursor-pointer"
+          aria-label="Quick actions"
         >
-          <Plus className="w-6 h-6" />
+          <Plus className="w-5 h-5" strokeWidth={2.5} />
         </button>
 
         <button
           type="button"
           onClick={() => setActiveTab('queue')}
-          className={`relative flex flex-col items-center py-1 px-3 rounded-xl text-[11px] font-medium cursor-pointer ${
-            activeTab === 'queue' ? 'text-slate-900 font-semibold' : 'text-slate-400'
+          className={`relative flex flex-col items-center gap-1 py-1 px-3 text-[11px] cursor-pointer transition ${
+            activeTab === 'queue'
+              ? 'text-[#163300] font-semibold'
+              : 'text-[#6A6C6A] font-medium'
           }`}
         >
-          <Clock className="w-5 h-5 mb-0.5" />
+          <Clock className="w-5 h-5" strokeWidth={activeTab === 'queue' ? 2.2 : 1.7} />
           <span>Queue</span>
           {pendingReceipts.length > 0 && (
-            <span className="absolute top-0.5 right-2 w-4 h-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+            <span className="absolute top-0.5 right-2 w-4 h-4 rounded-full bg-[#163300] text-[#9FE870] text-[10px] font-bold flex items-center justify-center">
               {pendingReceipts.length}
             </span>
           )}
@@ -538,11 +548,13 @@ export default function App() {
         <button
           type="button"
           onClick={() => setActiveTab('settings')}
-          className={`flex flex-col items-center py-1 px-3 rounded-xl text-[11px] font-medium cursor-pointer ${
-            activeTab === 'settings' ? 'text-slate-900 font-semibold' : 'text-slate-400'
+          className={`flex flex-col items-center gap-1 py-1 px-3 text-[11px] cursor-pointer transition ${
+            activeTab === 'settings'
+              ? 'text-[#163300] font-semibold'
+              : 'text-[#6A6C6A] font-medium'
           }`}
         >
-          <Settings className="w-5 h-5 mb-0.5" />
+          <SlidersHorizontal className="w-5 h-5" strokeWidth={activeTab === 'settings' ? 2.2 : 1.7} />
           <span>Settings</span>
         </button>
       </nav>

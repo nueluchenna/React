@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  KeyRound,
-  Cpu,
   Download,
   Upload,
   Trash2,
@@ -11,10 +9,8 @@ import {
   FileSpreadsheet,
   FileJson,
   ShieldCheck,
-  Wallet,
   AlertCircle,
   Loader2,
-  HardDrive,
 } from 'lucide-react';
 import {
   db,
@@ -274,7 +270,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const now = new Date().toISOString();
     await setSetting('lastBackupAt', now);
     setLastBackupAt(now);
-    onShowToast('Voluntary JSON backup downloaded!');
+    onShowToast('Voluntary JSON backup downloaded.');
   };
 
   const handleImportJSON = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -330,56 +326,63 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const detectedKeyType =
     provider === 'openrouter'
       ? openRouterApiKey.trim().length > 10
-        ? 'OpenRouter Free Vision'
-        : 'OpenRouter (No Key)'
+        ? 'OpenRouter Active'
+        : 'Not connected'
       : provider === 'groq'
       ? groqApiKey.trim().length > 10
         ? 'Groq Active'
-        : 'Groq (No Key)'
+        : 'Not connected'
       : apiKey.trim().startsWith('AQ.')
-      ? 'Vertex AI Express (AQ...)'
+      ? 'Vertex AI (AQ...)'
       : apiKey.trim().startsWith('AIza')
-      ? 'Google AI Studio (AIza...)'
+      ? 'AI Studio (AIza...)'
       : apiKey.trim().length > 10
       ? 'Custom Key'
       : 'Local OCR Only';
 
   return (
-    <div className="space-y-5 pb-24 max-w-3xl mx-auto">
-      {/* 1. AI Receipt Extraction Configuration */}
+    <div className="space-y-10 pb-28 max-w-3xl mx-auto">
+      {/* Page Title */}
+      <div className="space-y-1">
+        <h1 className="text-3xl sm:text-4xl font-display font-extrabold text-[#0E0F0C]">
+          Settings
+        </h1>
+        <p className="text-sm text-[#5D615C]">
+          Manage AI receipt scanning, budgets, privacy, and local backups.
+        </p>
+      </div>
+
+      {/* 1. AI Receipt Extraction Provider */}
       <form
         onSubmit={handleSaveAISettings}
-        className="bg-white rounded-2xl p-5 border border-slate-200/80 space-y-4"
+        className="bg-[#F2F5F2] rounded-3xl p-6 space-y-5"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <KeyRound className="w-4 h-4 text-slate-500" />
-            <div>
-              <h3 className="font-semibold text-slate-900 text-sm">
-                AI Receipt Extraction Provider
-              </h3>
-              <p className="text-xs text-slate-500">
-                OpenRouter (Free Direct Vision, no card), Groq, or Google Gemini
-              </p>
-            </div>
+          <div>
+            <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+              AI receipt extraction
+            </h2>
+            <p className="text-xs text-[#5D615C] mt-0.5">
+              OpenRouter (free direct vision, no card), Groq, or Google Gemini
+            </p>
           </div>
-          <span className="text-[11px] font-medium px-2.5 py-1 rounded-md bg-slate-100 text-slate-700">
+          <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-white text-[#163300]">
             {detectedKeyType}
           </span>
         </div>
 
-        {/* Provider Toggle */}
-        <div className="inline-flex flex-wrap rounded-xl bg-slate-100 p-1 text-xs font-medium gap-1">
+        {/* Wise-Style Segmented Pill Provider Switch */}
+        <div className="inline-flex flex-wrap rounded-full bg-[#E5EAE4] p-1 text-xs font-semibold gap-1">
           <button
             type="button"
             onClick={() => {
               setProvider('openrouter');
               setKeyTestResult(null);
             }}
-            className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+            className={`px-4 py-1.5 rounded-full transition cursor-pointer ${
               provider === 'openrouter'
-                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'bg-white text-[#163300] shadow-2xs'
+                : 'text-[#5D615C] hover:text-[#0E0F0C]'
             }`}
           >
             OpenRouter (Free Vision)
@@ -390,10 +393,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               setProvider('groq');
               setKeyTestResult(null);
             }}
-            className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+            className={`px-4 py-1.5 rounded-full transition cursor-pointer ${
               provider === 'groq'
-                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'bg-white text-[#163300] shadow-2xs'
+                : 'text-[#5D615C] hover:text-[#0E0F0C]'
             }`}
           >
             Groq (OCR → LLM)
@@ -404,10 +407,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               setProvider('gemini');
               setKeyTestResult(null);
             }}
-            className={`px-3 py-1.5 rounded-lg transition cursor-pointer ${
+            className={`px-4 py-1.5 rounded-full transition cursor-pointer ${
               provider === 'gemini'
-                ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'bg-white text-[#163300] shadow-2xs'
+                : 'text-[#5D615C] hover:text-[#0E0F0C]'
             }`}
           >
             Google Gemini
@@ -415,10 +418,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {provider === 'openrouter' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                OpenRouter API Key (free at openrouter.ai/keys — no credit card)
+              <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
+                OpenRouter API key (free at openrouter.ai/keys)
               </label>
               <input
                 type="password"
@@ -428,23 +431,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   setKeyTestResult(null);
                 }}
                 placeholder="sk-or-v1-..."
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-600"
+                className="w-full px-4 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
               />
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-medium text-slate-600 flex items-center gap-1">
-                  <Cpu className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Free Vision Model</span>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-[#5D615C]">
+                  Model
                 </label>
                 <button
                   type="button"
                   disabled={loadingOpenRouterModels}
                   onClick={handleRefreshOpenRouterModels}
-                  className="text-[11px] font-medium text-emerald-700 hover:underline disabled:opacity-40 cursor-pointer"
+                  className="text-[11px] font-semibold text-[#163300] underline underline-offset-2 disabled:opacity-40 cursor-pointer"
                 >
-                  {loadingOpenRouterModels ? 'Loading...' : 'Load Free Models'}
+                  {loadingOpenRouterModels ? 'Loading...' : 'Load free models'}
                 </button>
               </div>
               <select
@@ -457,21 +459,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   setOpenRouterModel(e.target.value);
                   setKeyTestResult(null);
                 }}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:border-emerald-600"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
               >
                 {liveOpenRouterModels.map((m) => (
                   <option key={m} value={m}>
-                    {m === 'openrouter/free' ? 'openrouter/free (Auto Free Vision)' : m}
+                    {m === 'openrouter/free' ? 'openrouter/free (Auto Vision)' : m}
                   </option>
                 ))}
               </select>
             </div>
           </div>
         ) : provider === 'groq' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Groq API Key (stored locally on this device only)
+              <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
+                Groq API key (stored locally only)
               </label>
               <input
                 type="password"
@@ -481,23 +483,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   setKeyTestResult(null);
                 }}
                 placeholder="gsk_..."
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-600"
+                className="w-full px-4 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
               />
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-medium text-slate-600 flex items-center gap-1">
-                  <Cpu className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Groq Model</span>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-[#5D615C]">
+                  Model
                 </label>
                 <button
                   type="button"
                   disabled={loadingGroqModels || !groqApiKey.trim()}
                   onClick={handleRefreshGroqModels}
-                  className="text-[11px] font-medium text-emerald-700 hover:underline disabled:opacity-40 cursor-pointer"
+                  className="text-[11px] font-semibold text-[#163300] underline underline-offset-2 disabled:opacity-40 cursor-pointer"
                 >
-                  {loadingGroqModels ? 'Loading...' : 'Load Live Models'}
+                  {loadingGroqModels ? 'Loading...' : 'Load live models'}
                 </button>
               </div>
               <select
@@ -506,7 +507,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   setGroqModel(e.target.value);
                   setKeyTestResult(null);
                 }}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:border-emerald-600"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
               >
                 {liveGroqModels.map((m) => (
                   <option key={m} value={m}>
@@ -517,10 +518,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-xs font-medium text-slate-600 mb-1">
-                Gemini API Key (AIza... from AI Studio or AQ... from Vertex)
+              <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
+                Gemini API key (AIza... or AQ...)
               </label>
               <input
                 type="password"
@@ -530,25 +531,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   if (val.trim().startsWith('gsk_')) {
                     setGroqApiKey(val);
                     setProvider('groq');
+                  } else if (val.trim().startsWith('sk-or-')) {
+                    setOpenRouterApiKey(val);
+                    setProvider('openrouter');
                   } else {
                     setApiKey(val);
                   }
                   setKeyTestResult(null);
                 }}
                 placeholder="AIzaSy... or AQ.Ab8..."
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-emerald-600"
+                className="w-full px-4 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1 flex items-center gap-1">
-                <Cpu className="w-3.5 h-3.5 text-slate-400" />
-                <span>Gemini Model</span>
+              <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
+                Model
               </label>
               <select
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:border-emerald-600"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C] focus:outline-none focus:ring-2 focus:ring-[#163300]/20"
               >
                 <option value="gemini-2.5-flash">gemini-2.5-flash</option>
                 <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
@@ -559,18 +562,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         {keyTestResult && (
           <div
-            className={`p-3 rounded-xl text-xs flex items-start gap-2 border ${
+            className={`p-3.5 rounded-2xl text-xs flex items-start gap-2 ${
               keyTestResult.ok
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                : 'bg-rose-50 border-rose-200 text-rose-900'
+                ? 'bg-white text-[#2F5711]'
+                : 'bg-[#FDECEC] text-[#A8200D]'
             }`}
           >
             {keyTestResult.ok ? (
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
             ) : (
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             )}
-            <span className="break-words">{keyTestResult.message}</span>
+            <span className="break-words font-medium">{keyTestResult.message}</span>
           </div>
         )}
 
@@ -579,21 +582,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             type="button"
             disabled={testingKey || !activeKeyValue.trim()}
             onClick={handleTestApiKey}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-700 font-medium text-xs transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-[#E8EDE7] disabled:opacity-40 text-[#163300] font-semibold text-xs transition cursor-pointer"
           >
             {testingKey ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <CheckCircle2 className="w-3.5 h-3.5" />
             )}
-            <span>{testingKey ? 'Testing Key...' : 'Test API Key'}</span>
+            <span>{testingKey ? 'Testing...' : 'Test API key'}</span>
           </button>
 
           <button
             type="submit"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition cursor-pointer"
+            className="px-5 py-2 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-xs transition cursor-pointer"
           >
-            <span>Save AI Settings</span>
+            Save AI settings
           </button>
         </div>
       </form>
@@ -601,29 +604,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* 2. Currency, Budget & Savings Goal */}
       <form
         onSubmit={handleSavePreferences}
-        className="bg-white rounded-2xl p-5 border border-slate-200/80 space-y-4"
+        className="bg-[#F2F5F2] rounded-3xl p-6 space-y-5"
       >
-        <div className="flex items-center gap-2.5">
-          <Wallet className="w-4 h-4 text-slate-500" />
-          <div>
-            <h3 className="font-semibold text-slate-900 text-sm">
-              Currency, Budget & Savings Goal
-            </h3>
-            <p className="text-xs text-slate-500">
-              Used for your monthly budget bar and savings analytics
-            </p>
-          </div>
+        <div>
+          <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+            Currency & monthly targets
+          </h2>
+          <p className="text-xs text-[#5D615C] mt-0.5">
+            Set your display currency, spending limit, and savings goal
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Default Currency
+            <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
+              Currency
             </label>
             <select
               value={selectedCurrency}
               onChange={(e) => setSelectedCurrency(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-white text-sm text-[#0E0F0C]"
             >
               {Object.entries(CURRENCY_SYMBOLS).map(([code, sym]) => (
                 <option key={code} value={code}>
@@ -634,28 +634,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Monthly Budget ({selectedCurrency})
+            <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
+              Monthly budget ({selectedCurrency})
             </label>
             <input
               type="number"
               step="10"
               value={budgetInput}
               onChange={(e) => setBudgetInput(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium tabular-nums"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-white text-sm font-semibold tabular-nums text-[#0E0F0C]"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
-              Monthly Savings Goal ({selectedCurrency})
+            <label className="block text-xs font-medium text-[#5D615C] mb-1.5">
+              Monthly savings goal ({selectedCurrency})
             </label>
             <input
               type="number"
               step="10"
               value={savingsGoalInput}
               onChange={(e) => setSavingsGoalInput(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-sm font-medium tabular-nums"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-white text-sm font-semibold tabular-nums text-[#0E0F0C]"
             />
           </div>
         </div>
@@ -663,108 +663,104 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex justify-end">
           <button
             type="submit"
-            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs transition cursor-pointer"
+            className="px-5 py-2 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-xs transition cursor-pointer"
           >
-            Update Targets
+            Update targets
           </button>
         </div>
       </form>
 
-      {/* 3. Storage & Data Safety + Voluntary Backups */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            <HardDrive className="w-4 h-4 text-slate-500" />
-            <div>
-              <h3 className="font-semibold text-slate-900 text-sm">
-                Data Safety, Persistence & Exports
-              </h3>
-              <p className="text-xs text-slate-500">
-                Your data lives locally in IndexedDB. Protect it or export anytime.
-              </p>
-            </div>
+      {/* 3. Data Safety, Persistence & Exports */}
+      <div className="bg-[#F2F5F2] rounded-3xl p-6 space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+              Data safety & exports
+            </h2>
+            <p className="text-xs text-[#5D615C] mt-0.5">
+              100% local IndexedDB storage with voluntary JSON & CSV exports
+            </p>
           </div>
 
           <button
             type="button"
             onClick={handleRequestPersistentStorage}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border transition cursor-pointer shrink-0 ${
+            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer shrink-0 ${
               isPersisted
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                ? 'bg-[#163300] text-[#9FE870]'
+                : 'bg-white text-[#163300] hover:bg-[#E8EDE7]'
             }`}
           >
             <ShieldCheck className="w-3.5 h-3.5" />
-            <span>{isPersisted ? 'Persistent Storage ON' : 'Enable Persistent Storage'}</span>
+            <span>{isPersisted ? 'Persistent storage ON' : 'Enable persistent storage'}</span>
           </button>
         </div>
 
-        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600 space-y-2">
+        <div className="p-4 rounded-2xl bg-white text-xs text-[#5D615C] space-y-2.5 leading-relaxed">
           <div>
-            <div className="font-semibold text-slate-800 mb-1">
-              Privacy & Third-Party AI Notice
+            <div className="font-semibold text-[#0E0F0C] mb-1">
+              Privacy & third-party AI notice
             </div>
             <ul className="list-disc pl-4 space-y-0.5">
               <li>
-                <strong>Local-only database:</strong> Your transactions, budgets, and receipt photos stay inside this browser&apos;s IndexedDB and are never stored on a Manni server.
+                <strong>Local-only database:</strong> Transactions, budgets, and receipt photos stay in this browser&apos;s IndexedDB—never on a Manni server.
               </li>
               <li>
-                <strong>AI receipt scanning:</strong> When Groq or Gemini is enabled, receipt images/OCR text are sent directly from your browser to your chosen AI provider. Use <strong>Local OCR</strong> or manual entry for 100% on-device processing.
+                <strong>AI scanning:</strong> When OpenRouter, Groq, or Gemini is enabled, receipt images/OCR text are sent directly to your chosen provider. Use <strong>Local OCR</strong> or manual entry for 100% on-device processing.
               </li>
               <li>
-                <strong>Safe backups &amp; shared devices:</strong> JSON backups automatically exclude your API keys. Avoid using Manni on public or shared browser profiles.
+                <strong>Safe backups:</strong> JSON backups automatically exclude your API keys. Avoid public/shared browser profiles.
               </li>
             </ul>
           </div>
 
-          <div className="pt-2 border-t border-slate-200/70">
-            <div className="font-semibold text-slate-800 mb-1">
+          <div className="pt-2 border-t border-[#ECEFEA]">
+            <div className="font-semibold text-[#0E0F0C] mb-1">
               What could clear local browser data?
             </div>
             <ul className="list-disc pl-4 space-y-0.5">
-              <li>Manually clicking &quot;Clear Site Data / Cookies&quot; in your browser settings.</li>
-              <li>Using Incognito / Private Browsing mode (wiped when the tab closes).</li>
-              <li>On iOS Safari: not opening the site for 7+ days unless installed to your Home Screen as a PWA.</li>
+              <li>Clearing site data / cookies in browser settings or using Incognito mode.</li>
+              <li>On iOS Safari: not opening the site for 7+ days unless added to your Home Screen.</li>
               <li>Switching devices, browsers, or uninstalling the browser.</li>
             </ul>
           </div>
 
-          <div className="pt-1 text-slate-500">
+          <div className="pt-1 text-[#6A6C6A]">
             {lastBackupAt
-              ? `Last voluntary JSON backup: ${new Date(lastBackupAt).toLocaleString()}`
-              : 'Tip: Click "Save JSON Backup" below periodically and keep it in iCloud / Google Drive.'}
+              ? `Last voluntary backup: ${new Date(lastBackupAt).toLocaleString()}`
+              : 'Tip: Save a JSON backup periodically to iCloud or Google Drive.'}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <button
             type="button"
             onClick={() => void handleExportJSON()}
-            className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition text-left cursor-pointer"
+            className="flex items-center justify-between p-4 rounded-2xl bg-white hover:bg-[#FAFBF9] transition text-left cursor-pointer"
           >
             <div>
-              <div className="font-semibold text-xs text-slate-900 flex items-center gap-1.5">
-                <FileJson className="w-4 h-4 text-emerald-600" />
-                <span>Save JSON Backup</span>
+              <div className="font-semibold text-xs text-[#0E0F0C] flex items-center gap-1.5">
+                <FileJson className="w-4 h-4 text-[#163300]" />
+                <span>Save JSON backup</span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                All receipts & images (API keys excluded for safety)
+              <p className="text-[11px] text-[#6A6C6A] mt-0.5">
+                All receipts & images (API keys excluded)
               </p>
             </div>
-            <Download className="w-4 h-4 text-slate-400" />
+            <Download className="w-4 h-4 text-[#6A6C6A]" />
           </button>
 
-          <label className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition text-left cursor-pointer">
+          <label className="flex items-center justify-between p-4 rounded-2xl bg-white hover:bg-[#FAFBF9] transition text-left cursor-pointer">
             <div>
-              <div className="font-semibold text-xs text-slate-900 flex items-center gap-1.5">
-                <Upload className="w-4 h-4 text-slate-600" />
-                <span>Restore JSON Backup</span>
+              <div className="font-semibold text-xs text-[#0E0F0C] flex items-center gap-1.5">
+                <Upload className="w-4 h-4 text-[#163300]" />
+                <span>Restore JSON backup</span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-[11px] text-[#6A6C6A] mt-0.5">
                 Import a saved backup file on any device
               </p>
             </div>
-            <Upload className="w-4 h-4 text-slate-400" />
+            <Upload className="w-4 h-4 text-[#6A6C6A]" />
             <input
               type="file"
               accept=".json,application/json"
@@ -779,18 +775,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               exportSummaryCSV(transactions);
               onShowToast('Summary CSV exported.');
             }}
-            className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition text-left cursor-pointer"
+            className="flex items-center justify-between p-4 rounded-2xl bg-white hover:bg-[#FAFBF9] transition text-left cursor-pointer"
           >
             <div>
-              <div className="font-semibold text-xs text-slate-900 flex items-center gap-1.5">
-                <FileSpreadsheet className="w-4 h-4 text-slate-600" />
-                <span>Export Summary CSV</span>
+              <div className="font-semibold text-xs text-[#0E0F0C] flex items-center gap-1.5">
+                <FileSpreadsheet className="w-4 h-4 text-[#163300]" />
+                <span>Export summary CSV</span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                {transactions.length} transactions (Excel / Sheets)
+              <p className="text-[11px] text-[#6A6C6A] mt-0.5">
+                {transactions.length} transactions for Excel / Sheets
               </p>
             </div>
-            <Download className="w-4 h-4 text-slate-400" />
+            <Download className="w-4 h-4 text-[#6A6C6A]" />
           </button>
 
           <button
@@ -799,97 +795,94 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               exportItemizedCSV(transactions);
               onShowToast('Itemized Line-Items CSV exported.');
             }}
-            className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition text-left cursor-pointer"
+            className="flex items-center justify-between p-4 rounded-2xl bg-white hover:bg-[#FAFBF9] transition text-left cursor-pointer"
           >
             <div>
-              <div className="font-semibold text-xs text-slate-900 flex items-center gap-1.5">
-                <FileSpreadsheet className="w-4 h-4 text-slate-600" />
-                <span>Export Itemized CSV</span>
+              <div className="font-semibold text-xs text-[#0E0F0C] flex items-center gap-1.5">
+                <FileSpreadsheet className="w-4 h-4 text-[#163300]" />
+                <span>Export itemized CSV</span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
+              <p className="text-[11px] text-[#6A6C6A] mt-0.5">
                 Every individual receipt line item
               </p>
             </div>
-            <Download className="w-4 h-4 text-slate-400" />
+            <Download className="w-4 h-4 text-[#6A6C6A]" />
           </button>
         </div>
 
-        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+        <div className="pt-2 flex flex-wrap items-center justify-between gap-2.5">
           <button
             type="button"
             onClick={onLoadDemoData}
-            className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition cursor-pointer"
+            className="px-4 py-2 rounded-full bg-white hover:bg-[#E8EDE7] text-[#163300] font-semibold text-xs transition cursor-pointer"
           >
-            Load Realistic Demo Data
+            Load realistic demo data
           </button>
 
           <button
             type="button"
             onClick={handleClearAllData}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-rose-600 hover:bg-rose-50 font-medium text-xs transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#FDECEC] hover:bg-[#FADADA] text-[#A8200D] font-semibold text-xs transition cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Clear All Local Data</span>
+            <span>Clear all local data</span>
           </button>
         </div>
       </div>
 
       {/* 4. Optional Cloud & Bank Sync Adapters */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 space-y-3">
-        <div className="flex items-center gap-2.5">
-          <Cloud className="w-4 h-4 text-slate-500" />
-          <div>
-            <h3 className="font-semibold text-slate-900 text-sm">
-              Optional Cloud & Bank Sync (Future Adapters)
-            </h3>
-            <p className="text-xs text-slate-500">
-              Pluggable sync interface ready for Supabase Cloud or Open Banking
-            </p>
-          </div>
+      <div className="bg-[#F2F5F2] rounded-3xl p-6 space-y-4">
+        <div>
+          <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+            Future sync adapters
+          </h2>
+          <p className="text-xs text-[#5D615C] mt-0.5">
+            Pluggable architecture ready for Supabase Cloud or Open Banking
+          </p>
         </div>
 
         {syncMessage && (
-          <div className="p-2.5 rounded-xl bg-slate-100 text-xs text-slate-700">
+          <div className="p-3 rounded-2xl bg-white text-xs text-[#0E0F0C]">
             {syncMessage}
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           {availableSyncAdapters.map((adapter) => (
             <div
               key={adapter.id}
-              className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 space-y-2.5"
+              className="p-4 rounded-2xl bg-white space-y-3"
             >
-              <div className="flex items-center gap-2 font-semibold text-xs text-slate-900">
+              <div className="flex items-center gap-2 font-semibold text-xs text-[#0E0F0C]">
                 {adapter.id.includes('bank') ? (
-                  <Landmark className="w-4 h-4 text-slate-500" />
+                  <Landmark className="w-4 h-4 text-[#163300]" />
                 ) : (
-                  <Cloud className="w-4 h-4 text-slate-500" />
+                  <Cloud className="w-4 h-4 text-[#163300]" />
                 )}
                 <span>{adapter.name}</span>
               </div>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
+              <p className="text-[11px] text-[#6A6C6A] leading-relaxed">
                 {adapter.description}
               </p>
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => handleTestSyncAdapter(adapter.id, 'connect')}
-                  className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-[11px] font-medium text-slate-700 cursor-pointer"
+                  className="px-3 py-1 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[11px] font-semibold text-[#163300] cursor-pointer"
                 >
                   Connect
                 </button>
                 <button
                   type="button"
                   onClick={() => handleTestSyncAdapter(adapter.id, 'push')}
-                  className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-[11px] font-medium text-slate-700 cursor-pointer"
+                  className="px-3 py-1 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[11px] font-semibold text-[#163300] cursor-pointer"
                 >
                   Push
                 </button>
                 <button
                   type="button"
                   onClick={() => handleTestSyncAdapter(adapter.id, 'pull')}
-                  className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-[11px] font-medium text-slate-700 cursor-pointer"
+                  className="px-3 py-1 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[11px] font-semibold text-[#163300] cursor-pointer"
                 >
                   Pull
                 </button>

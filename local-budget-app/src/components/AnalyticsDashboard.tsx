@@ -16,17 +16,10 @@ import {
 } from 'recharts';
 import {
   Sparkles,
-  TrendingUp,
-  Store,
-  Calendar,
-  Lightbulb,
   AlertTriangle,
   CheckCircle2,
   BarChart3,
-  PieChart as PieChartIcon,
   RefreshCw,
-  PiggyBank,
-  Target,
 } from 'lucide-react';
 import {
   CATEGORY_META,
@@ -108,11 +101,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     [filteredTransactions]
   );
 
-  // Savings metrics for selected period
   const netSavings = totalIncome - totalSpent;
   const savingsRate = totalIncome > 0 ? (netSavings / totalIncome) * 100 : 0;
 
-  // Monthly Cashflow & Savings Breakdown (across all available months, up to last 6)
   const monthlySavingsSeries = useMemo(() => {
     const map = new Map<string, { month: string; income: number; expenses: number; savings: number }>();
     for (const tx of transactions) {
@@ -135,7 +126,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       }));
   }, [transactions]);
 
-  // Current month spend & savings for goal trackers
   const currentMonthMetrics = useMemo(() => {
     const prefix = new Date().toISOString().slice(0, 7);
     let spent = 0;
@@ -156,7 +146,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     };
   }, [transactions, monthlyBudget, monthlySavingsGoal]);
 
-  // Category Breakdown
   const categoryBreakdown = useMemo(() => {
     const map = new Map<SpendeeCategory, { category: SpendeeCategory; amount: number; count: number }>();
     for (const tx of expenses) {
@@ -176,11 +165,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         ...item,
         amount: Number(item.amount.toFixed(2)),
         percentage: totalSpent > 0 ? (item.amount / totalSpent) * 100 : 0,
-        color: CATEGORY_META[item.category]?.color || '#64748b',
+        color: CATEGORY_META[item.category]?.color || '#5D615C',
       }));
   }, [expenses, totalSpent]);
 
-  // Daily Spending Trend Data
   const trendData = useMemo(() => {
     const map = new Map<string, number>();
     for (const tx of expenses) {
@@ -195,7 +183,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       }));
   }, [expenses]);
 
-  // Top Merchants Leaderboard
   const topMerchants = useMemo(() => {
     const map = new Map<string, { merchant: string; amount: number; count: number; category: SpendeeCategory }>();
     for (const tx of expenses) {
@@ -220,7 +207,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       }));
   }, [expenses, totalSpent]);
 
-  // Plain-English Insights
   const smartInsights = useMemo(() => {
     if (expenses.length === 0) return null;
 
@@ -253,56 +239,47 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       weekendMultiplier,
       cards: [
         {
-          title: 'Top Category',
-          badge: topCat ? `${topCat.percentage.toFixed(0)}% of spend` : '—',
+          title: 'Top category',
+          badge: topCat ? `${topCat.percentage.toFixed(0)}%` : '—',
           text: topCat
-            ? `${topCat.category} leads at ${topCat.percentage.toFixed(1)}% (${formatCurrency(
-                topCat.amount,
-                currency
-              )} across ${topCat.count} receipt${topCat.count > 1 ? 's' : ''}).`
+            ? `${topCat.category} leads at ${formatCurrency(topCat.amount, currency)} across ${
+                topCat.count
+              } receipt${topCat.count > 1 ? 's' : ''}.`
             : 'No category data yet.',
         },
         {
-          title: 'Weekend vs. Weekday',
+          title: 'Weekend pace',
           badge: `${weekendMultiplier.toFixed(1)}×`,
           text:
             weekendMultiplier >= 1.15
               ? `Weekend daily spend (${formatCurrency(
                   avgWeekendDay,
                   currency
-                )}) is ${weekendMultiplier.toFixed(1)}× higher than weekdays (${formatCurrency(
-                  avgWeekdayDay,
-                  currency
-                )}).`
-              : `Weekday spending (${formatCurrency(
-                  avgWeekdayDay,
-                  currency
-                )}/day) is steady compared to weekends (${formatCurrency(
-                  avgWeekendDay,
-                  currency
-                )}/day).`,
+                )}) is ${weekendMultiplier.toFixed(1)}× higher than weekdays.`
+              : `Weekday spend (${formatCurrency(avgWeekdayDay, currency)}/day) is steady vs. weekends.`,
         },
         {
-          title: 'Average Receipt',
+          title: 'Average receipt',
           badge: `${expenses.length} entries`,
-          text: `Average receipt total is ${formatCurrency(avgTx, currency)} with ${expenses.reduce(
+          text: `Average spend is ${formatCurrency(avgTx, currency)} with ${expenses.reduce(
             (sum, t) => sum + (t.lineItems?.length || 0),
             0
           )} itemized items tracked.`,
         },
         {
-          title: 'Savings Rate',
-          badge: totalIncome > 0 ? `${savingsRate.toFixed(1)}%` : 'Add income',
+          title: 'Savings rate',
+          badge: totalIncome > 0 ? `${savingsRate.toFixed(0)}%` : 'Add income',
           text:
             totalIncome > 0
-              ? `You saved ${formatCurrency(netSavings, currency)} (${savingsRate.toFixed(
-                  1
-                )}% of your ${formatCurrency(totalIncome, currency)} income) in this period.`
-              : `Log your monthly income to automatically track your net savings and savings rate.`,
+              ? `Saved ${formatCurrency(netSavings, currency)} of your ${formatCurrency(
+                  totalIncome,
+                  currency
+                )} income in this period.`
+              : `Add monthly income to track your savings rate automatically.`,
         },
       ],
     };
-  }, [expenses, categoryBreakdown, topMerchants, totalSpent, totalIncome, netSavings, savingsRate, currency]);
+  }, [expenses, categoryBreakdown, totalSpent, totalIncome, netSavings, savingsRate, currency]);
 
   const handleRunAICoach = async () => {
     setLoadingCoach(true);
@@ -332,120 +309,116 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
   if (transactions.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-10 text-center">
-        <BarChart3 className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-        <h3 className="text-base font-semibold text-slate-900">No analytics data yet</h3>
-        <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-          Add your first expense or load demo data to view spending breakdowns, savings rate, and trends.
-        </p>
+      <div className="rounded-3xl bg-[#F2F5F2] p-12 text-center space-y-4">
+        <div className="w-14 h-14 rounded-full bg-white border border-[#E2E5E0] text-[#163300] flex items-center justify-center mx-auto">
+          <BarChart3 className="w-6 h-6" strokeWidth={1.7} />
+        </div>
+        <div className="space-y-1">
+          <h3 className="text-base font-display font-bold text-[#0E0F0C]">
+            No analytics data yet
+          </h3>
+          <p className="text-sm text-[#5D615C] max-w-sm mx-auto">
+            Add your first expense or load demo data to view spending breakdowns, savings rate, and trends.
+          </p>
+        </div>
         <button
           type="button"
           onClick={onLoadDemoData}
-          className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition cursor-pointer"
+          className="px-5 py-2.5 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-sm transition cursor-pointer"
         >
-          <span>Load Demo Data</span>
+          Load demo data
         </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5 pb-24">
-      {/* Period Selector */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <Calendar className="w-4 h-4 text-slate-400" />
-          <div>
-            <h2 className="font-semibold text-slate-900 text-sm sm:text-base">
-              Analytics & Savings
-            </h2>
-            <p className="text-xs text-slate-500 tabular-nums">
-              Spent <strong className="text-slate-800">{formatCurrency(totalSpent, currency)}</strong>
+    <div className="space-y-10 pb-28">
+      {/* Page Header & Period Selector */}
+      <section className="space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-3xl sm:text-4xl font-display font-extrabold text-[#0E0F0C]">
+              Analytics
+            </h1>
+            <p className="text-sm text-[#5D615C] tabular-nums">
+              Spent <strong className="text-[#0E0F0C]">{formatCurrency(totalSpent, currency)}</strong>
               {totalIncome > 0 && (
                 <>
                   {' '}
-                  • Income <strong className="text-emerald-600">{formatCurrency(totalIncome, currency)}</strong>
+                  · Income <strong className="text-[#2F5711]">{formatCurrency(totalIncome, currency)}</strong>
                 </>
               )}
             </p>
           </div>
-        </div>
 
-        <div className="flex flex-wrap items-center gap-1">
-          {(
-            [
-              { id: 'this_month', label: 'This Month' },
-              { id: 'last_month', label: 'Last Month' },
-              { id: 'last_3_months', label: '3 Months' },
-              { id: 'all_time', label: 'All Time' },
-              { id: 'custom_month', label: 'Custom' },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setPeriod(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
-                period === tab.id
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-
-          {period === 'custom_month' && (
-            <input
-              type="month"
-              value={customMonth}
-              onChange={(e) => setCustomMonth(e.target.value)}
-              className="px-2.5 py-1 rounded-lg border border-slate-200 text-xs font-medium"
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Savings & Cashflow Analytics Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left: Savings KPIs + Monthly Savings Goal + Budget Thermometer */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <PiggyBank className="w-4 h-4 text-emerald-600" />
-                <h3 className="font-semibold text-slate-900 text-sm">Savings Overview</h3>
-              </div>
-              <span
-                className={`text-xs font-semibold px-2 py-0.5 rounded-md tabular-nums ${
-                  savingsRate >= 20
-                    ? 'bg-emerald-50 text-emerald-700'
-                    : savingsRate > 0
-                    ? 'bg-amber-50 text-amber-700'
-                    : 'bg-rose-50 text-rose-700'
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(
+              [
+                { id: 'this_month', label: 'This month' },
+                { id: 'last_month', label: 'Last month' },
+                { id: 'last_3_months', label: '3 months' },
+                { id: 'all_time', label: 'All time' },
+                { id: 'custom_month', label: 'Custom' },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setPeriod(tab.id)}
+                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+                  period === tab.id
+                    ? 'bg-[#163300] text-white'
+                    : 'bg-[#EDF0EC] text-[#5D615C] hover:text-[#0E0F0C]'
                 }`}
               >
-                {totalIncome > 0 ? `${savingsRate.toFixed(1)}% rate` : 'No income logged'}
+                {tab.label}
+              </button>
+            ))}
+
+            {period === 'custom_month' && (
+              <input
+                type="month"
+                value={customMonth}
+                onChange={(e) => setCustomMonth(e.target.value)}
+                className="px-3 py-1.5 rounded-full bg-[#F2F5F2] text-xs font-semibold text-[#0E0F0C]"
+              />
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Savings & Monthly Cashflow Section */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-5 space-y-5">
+          {/* Savings Card */}
+          <div className="bg-[#F2F5F2] rounded-3xl p-6 space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+                Savings
+              </h2>
+              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-white text-[#163300] tabular-nums">
+                {totalIncome > 0 ? `${savingsRate.toFixed(1)}% rate` : 'No income yet'}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <div className="text-[11px] font-medium text-slate-500">Period Net Savings</div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs text-[#5D615C]">Period net saved</div>
                 <div
-                  className={`text-lg font-bold tabular-nums mt-0.5 ${
-                    netSavings >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                  className={`text-2xl font-display font-bold tabular-nums mt-1 ${
+                    netSavings >= 0 ? 'text-[#2F5711]' : 'text-[#A8200D]'
                   }`}
                 >
                   {netSavings >= 0 ? '+' : ''}
                   {formatCurrency(netSavings, currency)}
                 </div>
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-                <div className="text-[11px] font-medium text-slate-500">This Month Saved</div>
+              <div>
+                <div className="text-xs text-[#5D615C]">This month</div>
                 <div
-                  className={`text-lg font-bold tabular-nums mt-0.5 ${
-                    currentMonthMetrics.saved >= 0 ? 'text-slate-900' : 'text-rose-600'
+                  className={`text-2xl font-display font-bold tabular-nums mt-1 ${
+                    currentMonthMetrics.saved >= 0 ? 'text-[#0E0F0C]' : 'text-[#A8200D]'
                   }`}
                 >
                   {formatCurrency(currentMonthMetrics.saved, currency)}
@@ -453,75 +426,65 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </div>
             </div>
 
-            {/* Monthly Savings Goal Progress Bar */}
-            <div>
-              <div className="flex items-center justify-between text-xs mb-1.5">
-                <span className="font-medium text-slate-600">Monthly Savings Goal</span>
-                <span className="font-semibold tabular-nums text-slate-800">
+            {/* Monthly Savings Goal Bar */}
+            <div className="pt-2 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-medium text-[#5D615C]">Monthly goal</span>
+                <span className="font-semibold tabular-nums text-[#0E0F0C]">
                   {formatCurrency(Math.max(0, currentMonthMetrics.saved), currency)} /{' '}
                   {formatCurrency(monthlySavingsGoal, currency)}
                 </span>
               </div>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div className="h-2 bg-[#E0E5DF] rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-emerald-600 transition-all duration-500"
+                  className="h-full rounded-full bg-[#163300] transition-all duration-500"
                   style={{ width: `${Math.min(100, currentMonthMetrics.savingsGoalPct)}%` }}
                 />
-              </div>
-              <div className="text-[11px] text-slate-500 mt-1.5">
-                {currentMonthMetrics.saved >= monthlySavingsGoal
-                  ? 'Monthly savings target reached.'
-                  : `${formatCurrency(
-                      monthlySavingsGoal - Math.max(0, currentMonthMetrics.saved),
-                      currency
-                    )} more to hit your monthly savings target.`}
               </div>
             </div>
           </div>
 
-          {/* Monthly Budget Thermometer */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 space-y-3">
+          {/* Monthly Budget Card */}
+          <div className="bg-[#F2F5F2] rounded-3xl p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-slate-500" />
-                <h3 className="font-semibold text-slate-900 text-sm">Monthly Budget</h3>
-              </div>
-              <span className="text-xs font-semibold tabular-nums text-slate-700">
-                {formatCurrency(currentMonthMetrics.spent, currency)} /{' '}
-                {formatCurrency(monthlyBudget, currency)} ({currentMonthMetrics.budgetPct.toFixed(0)}%)
+              <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+                Monthly budget
+              </h2>
+              <span className="text-xs font-semibold tabular-nums text-[#5D615C]">
+                {currentMonthMetrics.budgetPct.toFixed(0)}% used
               </span>
             </div>
 
-            <div className="relative h-2.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="relative h-2 bg-[#E0E5DF] rounded-full overflow-hidden">
               <div
-                className="absolute top-0 bottom-0 left-[75%] w-0.5 bg-amber-400 z-10"
-                title="75% Warning Threshold"
+                className="absolute top-0 bottom-0 left-[75%] w-0.5 bg-[#0E0F0C]/25 z-10"
+                title="75% warning"
               />
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
                   currentMonthMetrics.budgetPct >= 100
-                    ? 'bg-rose-600'
+                    ? 'bg-[#A8200D]'
                     : currentMonthMetrics.budgetPct >= 75
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-600'
+                    ? 'bg-amber-600'
+                    : 'bg-[#163300]'
                 }`}
                 style={{ width: `${Math.min(100, currentMonthMetrics.budgetPct)}%` }}
               />
             </div>
 
-            <div className="text-xs">
+            <div className="text-xs font-medium">
               {currentMonthMetrics.budgetPct >= 100 ? (
-                <span className="inline-flex items-center gap-1.5 text-rose-600 font-medium">
+                <span className="inline-flex items-center gap-1.5 text-[#A8200D]">
                   <AlertTriangle className="w-3.5 h-3.5" />
                   Over budget by {formatCurrency(currentMonthMetrics.spent - monthlyBudget, currency)}
                 </span>
               ) : currentMonthMetrics.budgetPct >= 75 ? (
-                <span className="inline-flex items-center gap-1.5 text-amber-700 font-medium">
+                <span className="inline-flex items-center gap-1.5 text-amber-700">
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  Crossed 75% warning ({formatCurrency(monthlyBudget - currentMonthMetrics.spent, currency)} left)
+                  {formatCurrency(monthlyBudget - currentMonthMetrics.spent, currency)} left before limit
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 text-emerald-700 font-medium">
+                <span className="inline-flex items-center gap-1.5 text-[#2F5711]">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   {formatCurrency(monthlyBudget - currentMonthMetrics.spent, currency)} remaining this month
                 </span>
@@ -529,7 +492,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </div>
 
             {budgets.filter((b) => b.category !== 'ALL').length > 0 && (
-              <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-2.5">
+              <div className="pt-2 grid grid-cols-2 gap-2.5">
                 {budgets
                   .filter((b) => b.category !== 'ALL')
                   .map((b) => {
@@ -538,15 +501,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                       categoryBreakdown.find((c) => c.category === cat)?.amount || 0;
                     const pct = b.monthlyLimit > 0 ? (spentInCat / b.monthlyLimit) * 100 : 0;
                     return (
-                      <div key={b.id} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-                        <div className="flex items-center justify-between text-[11px] font-medium text-slate-700 mb-1">
+                      <div key={b.id} className="p-3 rounded-2xl bg-white">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-[#0E0F0C] mb-1.5">
                           <span className="truncate">{cat}</span>
-                          <span className="tabular-nums">{pct.toFixed(0)}%</span>
+                          <span className="tabular-nums text-[#5D615C]">{pct.toFixed(0)}%</span>
                         </div>
-                        <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-1 bg-[#ECEFEA] rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${
-                              pct >= 100 ? 'bg-rose-500' : pct >= 75 ? 'bg-amber-500' : 'bg-emerald-500'
+                              pct >= 100 ? 'bg-[#A8200D]' : pct >= 75 ? 'bg-amber-600' : 'bg-[#163300]'
                             }`}
                             style={{ width: `${Math.min(100, pct)}%` }}
                           />
@@ -559,14 +522,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           </div>
         </div>
 
-        {/* Right: Monthly Income vs Expenses & Net Savings Chart */}
-        <div className="lg:col-span-7 bg-white rounded-2xl p-5 border border-slate-200/80 flex flex-col justify-between">
-          <div className="mb-4">
-            <h3 className="font-semibold text-slate-900 text-sm">
-              Monthly Income, Expenses & Net Savings
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Track how much you retain each month across income and spending
+        {/* Monthly Cashflow & Net Savings Chart */}
+        <div className="lg:col-span-7 bg-[#F2F5F2] rounded-3xl p-6 flex flex-col justify-between">
+          <div className="mb-5">
+            <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+              Income, expenses & savings
+            </h2>
+            <p className="text-xs text-[#5D615C] mt-0.5">
+              Monthly cashflow retention overview
             </p>
           </div>
 
@@ -574,132 +537,129 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={monthlySavingsSeries}
-                margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+                margin={{ top: 8, right: 8, left: -12, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} />
-                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
-                <Tooltip
-                  formatter={(value) => formatCurrency(Number(value), currency)}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E6E0" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#5D615C' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#5D615C' }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value), currency)} />
                 <Legend wrapperStyle={{ fontSize: '12px' }} />
-                <Bar dataKey="income" name="Income" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" name="Expenses" fill="#94a3b8" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="savings" name="Net Savings" fill="#0f172a" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="income" name="Income" fill="#9FE870" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="expenses" name="Expenses" fill="#B8C2B5" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="savings" name="Net savings" fill="#163300" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Spending Insights & AI Coach */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 space-y-4">
+      {/* Plain-English Insights & AI Coach */}
+      <section className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Lightbulb className="w-4 h-4 text-slate-500" />
-            <h3 className="font-semibold text-slate-900 text-sm">
-              Spending Insights
-            </h3>
-          </div>
+          <h2 className="text-xl font-display font-bold text-[#0E0F0C]">
+            Insights
+          </h2>
 
           <button
             type="button"
             disabled={loadingCoach}
             onClick={handleRunAICoach}
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-xs transition cursor-pointer self-start sm:self-auto"
           >
             {loadingCoach ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+              <Sparkles className="w-3.5 h-3.5" />
             )}
             <span>
               {loadingCoach
                 ? 'Analyzing...'
                 : coachAdvice
-                ? 'Refresh AI Coach'
-                : 'AI Financial Coach'}
+                ? 'Refresh AI coach'
+                : 'Ask AI financial coach'}
             </span>
           </button>
         </div>
 
         {smartInsights && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {smartInsights.cards.map((card, i) => (
               <div
                 key={i}
-                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 flex flex-col justify-between"
+                className="p-5 rounded-3xl bg-[#F2F5F2] flex flex-col justify-between gap-3"
               >
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-[#5D615C]">
                     {card.title}
                   </span>
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 tabular-nums">
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white text-[#163300] tabular-nums">
                     {card.badge}
                   </span>
                 </div>
-                <p className="text-xs text-slate-700 leading-relaxed">{card.text}</p>
+                <p className="text-xs text-[#0E0F0C] leading-relaxed">{card.text}</p>
               </div>
             ))}
           </div>
         )}
 
         {coachAdvice && (
-          <div className="rounded-xl bg-slate-900 text-white p-5 space-y-4">
-            <div>
-              <span className="text-[11px] font-medium text-emerald-400 uppercase tracking-wider">
+          <div className="rounded-3xl bg-[#163300] text-white p-6 sm:p-7 space-y-5">
+            <div className="space-y-1">
+              <span className="text-[11px] font-semibold text-[#9FE870] uppercase tracking-wider">
                 {coachAdvice.source === 'openrouter'
                   ? 'OpenRouter Financial Coach'
                   : coachAdvice.source === 'groq'
                   ? 'Groq Financial Coach'
                   : coachAdvice.source === 'gemini'
                   ? 'Gemini Financial Coach'
-                  : 'Smart Coach'}
+                  : 'Manni Smart Coach'}
               </span>
-              <h4 className="text-sm sm:text-base font-semibold text-white mt-1">
+              <h3 className="text-base sm:text-lg font-display font-bold text-white">
                 {coachAdvice.headline}
-              </h4>
+              </h3>
             </div>
 
-            <ul className="space-y-1 text-xs text-slate-300">
+            <ul className="space-y-1.5 text-xs sm:text-sm text-white/80">
               {coachAdvice.habitBreakdown.map((bullet, idx) => (
                 <li key={idx} className="flex items-start gap-2">
-                  <span className="text-emerald-400">•</span>
+                  <span className="text-[#9FE870]">·</span>
                   <span>{bullet}</span>
                 </li>
               ))}
             </ul>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 pt-1">
               {coachAdvice.savingTips.map((tip, idx) => (
                 <div
                   key={idx}
-                  className="p-3.5 rounded-xl bg-white/5 border border-white/10 space-y-1.5"
+                  className="p-4 rounded-2xl bg-white/8 space-y-2"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium text-slate-400">Action {idx + 1}</span>
-                    <span className="text-[11px] font-semibold text-emerald-400 tabular-nums">
+                    <span className="text-[11px] font-medium text-white/60">
+                      Step {idx + 1}
+                    </span>
+                    <span className="text-[11px] font-bold text-[#9FE870] tabular-nums">
                       ~{tip.estimatedMonthlySavings}
                     </span>
                   </div>
-                  <div className="font-semibold text-xs text-white">{tip.title}</div>
-                  <p className="text-xs text-slate-300 leading-relaxed">{tip.action}</p>
+                  <div className="font-semibold text-sm text-white">{tip.title}</div>
+                  <p className="text-xs text-white/75 leading-relaxed">{tip.action}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Category Donut & Spending Trend + Top Merchants */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        <div className="lg:col-span-5 bg-white rounded-2xl p-5 border border-slate-200/80 flex flex-col">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <PieChartIcon className="w-4 h-4 text-slate-500" />
-              <h3 className="font-semibold text-slate-900 text-sm">Spending by Category</h3>
-            </div>
-            <span className="text-xs text-slate-400">{categoryBreakdown.length} categories</span>
+      {/* Categories & Spending Trend */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Donut & Category List */}
+        <div className="lg:col-span-5 bg-[#F2F5F2] rounded-3xl p-6 flex flex-col">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+              By category
+            </h2>
+            <span className="text-xs text-[#5D615C]">{categoryBreakdown.length} active</span>
           </div>
 
           <div className="relative h-60 w-full">
@@ -711,12 +671,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   nameKey="category"
                   cx="50%"
                   cy="50%"
-                  innerRadius={58}
-                  outerRadius={86}
+                  innerRadius={60}
+                  outerRadius={88}
                   paddingAngle={2}
                 >
                   {categoryBreakdown.map((entry) => (
-                    <Cell key={entry.category} fill={entry.color} stroke="#ffffff" strokeWidth={2} />
+                    <Cell key={entry.category} fill={entry.color} stroke="#F2F5F2" strokeWidth={2} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => formatCurrency(Number(value), currency)} />
@@ -724,32 +684,30 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </ResponsiveContainer>
 
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-[10px] uppercase tracking-wider font-medium text-slate-400">
-                Spent
-              </span>
-              <span className="text-base font-bold tabular-nums text-slate-900">
+              <span className="text-[11px] font-medium text-[#5D615C]">Total</span>
+              <span className="text-base font-display font-bold tabular-nums text-[#0E0F0C]">
                 {formatCurrency(totalSpent, currency)}
               </span>
             </div>
           </div>
 
-          <div className="mt-3 space-y-1.5 max-h-56 overflow-y-auto pr-1">
+          <div className="mt-3 space-y-1 max-h-56 overflow-y-auto pr-1">
             {categoryBreakdown.map((item) => (
               <div
                 key={item.category}
-                className="flex items-center justify-between text-xs py-1.5 px-2 rounded-lg hover:bg-slate-50"
+                className="flex items-center justify-between text-xs py-2 px-2.5 rounded-xl hover:bg-white/70 transition"
               >
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <span
                     className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="font-medium text-slate-800 truncate">{item.category}</span>
-                  <span className="text-slate-400">({item.count})</span>
+                  <span className="font-semibold text-[#0E0F0C] truncate">{item.category}</span>
+                  <span className="text-[#6A6C6A]">({item.count})</span>
                 </div>
-                <div className="flex items-center gap-2.5 shrink-0 tabular-nums">
-                  <span className="text-slate-500">{item.percentage.toFixed(1)}%</span>
-                  <span className="font-semibold text-slate-900 w-20 text-right">
+                <div className="flex items-center gap-3 shrink-0 tabular-nums">
+                  <span className="text-[#5D615C]">{item.percentage.toFixed(0)}%</span>
+                  <span className="font-bold text-[#0E0F0C] w-20 text-right">
                     {formatCurrency(item.amount, currency)}
                   </span>
                 </div>
@@ -758,22 +716,22 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           </div>
         </div>
 
-        <div className="lg:col-span-7 bg-white rounded-2xl p-5 border border-slate-200/80 flex flex-col justify-between">
+        {/* Trend & Top Merchants */}
+        <div className="lg:col-span-7 bg-[#F2F5F2] rounded-3xl p-6 flex flex-col justify-between gap-6">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-slate-500" />
-                <h3 className="font-semibold text-slate-900 text-sm">Daily Spending Trend</h3>
-              </div>
+              <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+                Daily spending
+              </h2>
 
-              <div className="inline-flex rounded-lg bg-slate-100 p-0.5 text-xs font-medium">
+              <div className="inline-flex rounded-full bg-white p-1 text-xs font-semibold">
                 <button
                   type="button"
                   onClick={() => setTrendChartType('area')}
-                  className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                  className={`px-3 py-1 rounded-full transition cursor-pointer ${
                     trendChartType === 'area'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-500'
+                      ? 'bg-[#163300] text-white'
+                      : 'text-[#5D615C]'
                   }`}
                 >
                   Area
@@ -781,10 +739,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setTrendChartType('bar')}
-                  className={`px-2.5 py-1 rounded-md transition cursor-pointer ${
+                  className={`px-3 py-1 rounded-full transition cursor-pointer ${
                     trendChartType === 'bar'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-500'
+                      ? 'bg-[#163300] text-white'
+                      : 'text-[#5D615C]'
                   }`}
                 >
                   Bars
@@ -792,84 +750,75 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               </div>
             </div>
 
-            <div className="h-64 w-full">
+            <div className="h-60 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 {trendChartType === 'area' ? (
-                  <AreaChart data={trendData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                  <AreaChart data={trendData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="spendGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#059669" stopOpacity={0.22} />
-                        <stop offset="95%" stopColor="#059669" stopOpacity={0.01} />
+                      <linearGradient id="manniSpendGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#163300" stopOpacity={0.22} />
+                        <stop offset="95%" stopColor="#163300" stopOpacity={0.01} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E6E0" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#5D615C' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#5D615C' }} axisLine={false} tickLine={false} />
                     <Tooltip formatter={(val) => [formatCurrency(Number(val), currency), 'Spent']} />
                     <Area
                       type="monotone"
                       dataKey="amount"
-                      stroke="#059669"
-                      strokeWidth={2}
+                      stroke="#163300"
+                      strokeWidth={2.2}
                       fillOpacity={1}
-                      fill="url(#spendGradient)"
+                      fill="url(#manniSpendGrad)"
                     />
                   </AreaChart>
                 ) : (
-                  <BarChart data={trendData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
+                  <BarChart data={trendData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E6E0" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#5D615C' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#5D615C' }} axisLine={false} tickLine={false} />
                     <Tooltip formatter={(val) => [formatCurrency(Number(val), currency), 'Spent']} />
-                    <Bar dataKey="amount" fill="#0f172a" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="amount" fill="#163300" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 )}
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Top Merchants Leaderboard */}
-          <div className="mt-5 pt-4 border-t border-slate-100">
-            <div className="flex items-center gap-2 mb-3">
-              <Store className="w-4 h-4 text-slate-500" />
-              <h4 className="font-semibold text-slate-900 text-sm">Top Merchants</h4>
-            </div>
+          {/* Top Merchants */}
+          <div className="pt-5 border-t border-[#E2E6E0] space-y-3.5">
+            <h3 className="font-display font-bold text-[#0E0F0C] text-sm">
+              Top merchants
+            </h3>
 
-            <div className="space-y-2.5">
-              {topMerchants.map((m) => {
-                const meta = CATEGORY_META[m.category] || CATEGORY_META.Other;
-                return (
-                  <div key={m.merchant} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2 font-medium text-slate-800">
-                        <span
-                          className={`w-6 h-6 rounded-md ${meta.bgLight} ${meta.textColor} flex items-center justify-center`}
-                        >
-                          <CategoryIcon category={m.category} className="w-3.5 h-3.5" />
-                        </span>
-                        <span>{m.merchant}</span>
-                        <span className="text-slate-400">({m.count}×)</span>
-                      </div>
-                      <div className="font-semibold tabular-nums text-slate-900">
-                        {formatCurrency(m.amount, currency)}
-                      </div>
+            <div className="space-y-3">
+              {topMerchants.map((m) => (
+                <div key={m.merchant} className="space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2.5 font-semibold text-[#0E0F0C]">
+                      <span className="w-7 h-7 rounded-full bg-white text-[#163300] flex items-center justify-center">
+                        <CategoryIcon category={m.category} className="w-3.5 h-3.5" />
+                      </span>
+                      <span>{m.merchant}</span>
+                      <span className="text-[#6A6C6A] font-normal">{m.count}×</span>
                     </div>
-                    <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${Math.min(100, m.percentage)}%`,
-                          backgroundColor: meta.color,
-                        }}
-                      />
+                    <div className="font-bold tabular-nums text-[#0E0F0C]">
+                      {formatCurrency(m.amount, currency)}
                     </div>
                   </div>
-                );
-              })}
+                  <div className="h-1.5 bg-[#E0E5DF] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-[#163300]"
+                      style={{ width: `${Math.min(100, m.percentage)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

@@ -3,18 +3,47 @@
 @layer base {
   :root {
     color-scheme: light;
+    --manni-bg: #ffffff;
+    --manni-surface: #f2f5f2;
+    --manni-surface-hover: #e8ede7;
+    --manni-pill: #edf0ec;
+    --manni-border: #e4e7e2;
+    --manni-ink: #0e0f0c;
+    --manni-muted: #5d615c;
+    --manni-subtle: #868a84;
+    --manni-forest: #163300;
+    --manni-lime: #9fe870;
+    --manni-lime-hover: #8ede5c;
+    --manni-positive: #2f5711;
+    --manni-danger-bg: #fdecec;
+    --manni-danger: #a8200d;
   }
 
   body {
     margin: 0;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background-color: #f8fafc;
-    color: #0f172a;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: var(--manni-bg);
+    color: var(--manni-ink);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: -0.025em;
   }
 }
 
-/* Custom subtle scrollbars */
+/* Hide scrollbars on horizontal pill rails while preserving scroll */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Subtle custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -25,10 +54,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #d9ddd7;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #b7bdb4;
 }

@@ -11,10 +11,8 @@ import {
   ChevronRight,
   AlertCircle,
   CheckCircle2,
-  FileSpreadsheet,
 } from 'lucide-react';
 import {
-  CATEGORY_META,
   SPENDEE_CATEGORIES,
   formatCurrency,
   type Transaction,
@@ -144,122 +142,145 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
   }
 
   return (
-    <div className="space-y-5 pb-24">
-      {/* Clean Overview KPI Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80">
-          <div className="text-xs font-medium text-slate-500">Spent This Month</div>
-          <div className="text-xl sm:text-2xl font-bold tabular-nums text-slate-900 mt-1">
-            {formatCurrency(stats.monthExpenses, currency)}
+    <div className="space-y-10 pb-28">
+      {/* Wise/Revolut Editorial Hero & Pill Actions */}
+      <section className="space-y-6">
+        <div className="space-y-1.5">
+          <div className="text-sm font-medium text-[#5D615C]">
+            Spent this month
           </div>
-          <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden mt-2.5">
-            <div
-              className={`h-full rounded-full transition-all ${
-                stats.budgetPct >= 100
-                  ? 'bg-rose-500'
-                  : stats.budgetPct >= 75
-                  ? 'bg-amber-500'
-                  : 'bg-emerald-600'
-              }`}
-              style={{ width: `${Math.min(100, stats.budgetPct)}%` }}
-            />
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <h1 className="text-4xl sm:text-5xl font-display font-extrabold tabular-nums text-[#0E0F0C] tracking-tight">
+              {formatCurrency(stats.monthExpenses, currency)}
+            </h1>
+            <span className="text-sm font-medium text-[#5D615C] tabular-nums">
+              of {formatCurrency(monthlyBudget, currency)} budget
+            </span>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80">
-          <div className="text-xs font-medium text-slate-500">Income This Month</div>
-          <div className="text-xl sm:text-2xl font-bold tabular-nums text-emerald-600 mt-1">
-            {formatCurrency(stats.monthIncome, currency)}
-          </div>
-          <div className="text-[11px] text-slate-400 mt-2">Monthly inflows</div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80">
-          <div className="text-xs font-medium text-slate-500">Net Saved</div>
-          <div
-            className={`text-xl sm:text-2xl font-bold tabular-nums mt-1 ${
-              stats.monthSavings >= 0 ? 'text-slate-900' : 'text-rose-600'
-            }`}
-          >
-            {stats.monthSavings >= 0 ? '+' : ''}
-            {formatCurrency(stats.monthSavings, currency)}
-          </div>
-          <div className="text-[11px] text-slate-400 mt-2">Income minus spend</div>
-        </div>
-
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80">
-          <div className="text-xs font-medium text-slate-500">Budget Remaining</div>
-          <div
-            className={`text-xl sm:text-2xl font-bold tabular-nums mt-1 ${
-              stats.budgetRemaining < 0 ? 'text-rose-600' : 'text-slate-900'
-            }`}
-          >
-            {formatCurrency(stats.budgetRemaining, currency)}
-          </div>
-          <div className="text-[11px] text-slate-400 mt-2 tabular-nums">
-            Target {formatCurrency(monthlyBudget, currency)}
-          </div>
-        </div>
-      </div>
-
-      {/* Compact Quick Capture Bar (Camera, Upload, Paste, Manual) */}
-      <div className="bg-white rounded-2xl p-3 border border-slate-200/80 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Iconic Wise Pill Action Rail */}
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
             onClick={onOpenCamera}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs transition cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-sm transition cursor-pointer"
           >
-            <Camera className="w-3.5 h-3.5" />
-            <span>Take Photo</span>
+            <Camera className="w-4 h-4" />
+            <span>Scan receipt</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenManualEntry}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] font-semibold text-sm transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add entry</span>
           </button>
 
           <button
             type="button"
             onClick={onTriggerFileUpload}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium text-xs transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] font-semibold text-sm transition cursor-pointer"
           >
-            <Upload className="w-3.5 h-3.5" />
-            <span>Upload Receipt</span>
+            <Upload className="w-4 h-4" />
+            <span>Upload</span>
           </button>
 
           <button
             type="button"
             onClick={onPasteClipboard}
             title="Paste screenshot (Ctrl+V)"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] font-semibold text-sm transition cursor-pointer"
           >
-            <ClipboardPaste className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Paste</span>
+            <ClipboardPaste className="w-4 h-4" />
+            <span>Paste</span>
           </button>
         </div>
+      </section>
 
-        <button
-          type="button"
-          onClick={onOpenManualEntry}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span>Add Entry</span>
-        </button>
-      </div>
+      {/* Wise-Style Borderless Warm-Stone Balance Cards */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-[#F2F5F2] rounded-3xl p-6 flex flex-col justify-between min-h-[144px]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#5D615C]">
+              Budget left
+            </span>
+            <span className="text-xs font-semibold tabular-nums text-[#5D615C]">
+              {Math.round(stats.budgetPct)}% used
+            </span>
+          </div>
+          <div className="space-y-3 mt-4">
+            <div
+              className={`text-2xl font-display font-bold tabular-nums ${
+                stats.budgetRemaining < 0 ? 'text-[#A8200D]' : 'text-[#0E0F0C]'
+              }`}
+            >
+              {formatCurrency(stats.budgetRemaining, currency)}
+            </div>
+            <div className="w-full h-1.5 bg-[#E0E5DF] rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  stats.budgetPct >= 100
+                    ? 'bg-[#A8200D]'
+                    : stats.budgetPct >= 75
+                    ? 'bg-amber-600'
+                    : 'bg-[#163300]'
+                }`}
+                style={{ width: `${Math.min(100, stats.budgetPct)}%` }}
+              />
+            </div>
+          </div>
+        </div>
 
-      {/* Offline / Pending Queue Banner */}
+        <div className="bg-[#F2F5F2] rounded-3xl p-6 flex flex-col justify-between min-h-[144px]">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#5D615C]">
+            Income
+          </span>
+          <div className="mt-4">
+            <div className="text-2xl font-display font-bold tabular-nums text-[#2F5711]">
+              {stats.monthIncome > 0 ? '+' : ''}
+              {formatCurrency(stats.monthIncome, currency)}
+            </div>
+            <div className="text-xs text-[#6A6C6A] mt-1">This month inflows</div>
+          </div>
+        </div>
+
+        <div className="bg-[#F2F5F2] rounded-3xl p-6 flex flex-col justify-between min-h-[144px]">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#5D615C]">
+            Net saved
+          </span>
+          <div className="mt-4">
+            <div
+              className={`text-2xl font-display font-bold tabular-nums ${
+                stats.monthSavings >= 0 ? 'text-[#0E0F0C]' : 'text-[#A8200D]'
+              }`}
+            >
+              {stats.monthSavings >= 0 ? '+' : ''}
+              {formatCurrency(stats.monthSavings, currency)}
+            </div>
+            <div className="text-xs text-[#6A6C6A] mt-1">Income minus spend</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Pending / Offline Queue Strip (Only shown when active) */}
       {pendingReceipts.length > 0 && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-amber-100 text-amber-700 shrink-0">
+        <section className="rounded-3xl bg-[#F2F5F2] p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-full bg-white border border-[#E2E5E0] text-[#163300] flex items-center justify-center shrink-0">
                 <Clock className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-semibold text-amber-950 text-sm">
-                  {pendingReceipts.length} receipt{pendingReceipts.length > 1 ? 's' : ''} in queue
+                <h3 className="font-semibold text-[#0E0F0C] text-sm">
+                  {pendingReceipts.length} receipt{pendingReceipts.length > 1 ? 's' : ''} waiting in queue
                 </h3>
-                <p className="text-xs text-amber-800">
+                <p className="text-xs text-[#5D615C] mt-0.5">
                   {isOffline
-                    ? 'Offline mode active. Receipts will extract automatically when online.'
-                    : 'Ready to sync pending receipts into transactions.'}
+                    ? 'Offline mode active. Saved locally until you reconnect.'
+                    : 'Ready to extract into transactions.'}
                 </p>
               </div>
             </div>
@@ -270,54 +291,54 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
                   type="button"
                   disabled={isSyncingQueue}
                   onClick={onSyncQueueNow}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-semibold transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] disabled:opacity-50 text-[#163300] text-xs font-semibold transition cursor-pointer"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncingQueue ? 'animate-spin' : ''}`} />
-                  <span>{isSyncingQueue ? 'Syncing...' : 'Sync Now'}</span>
+                  <span>{isSyncingQueue ? 'Syncing...' : 'Sync now'}</span>
                 </button>
               )}
               <button
                 type="button"
                 onClick={onOpenQueueTab}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white hover:bg-amber-100/70 text-amber-900 border border-amber-200 text-xs font-medium transition cursor-pointer"
+                className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-white hover:bg-[#E8EDE7] text-[#163300] text-xs font-semibold transition cursor-pointer"
               >
-                <span>Open Queue</span>
+                <span>Open queue</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
-          <div className="mt-3 pt-2.5 border-t border-amber-200/60 flex items-center gap-2.5 overflow-x-auto">
+          <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar">
             {pendingReceipts.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={onOpenQueueTab}
-                className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-xl border border-amber-200/80 hover:border-amber-400 transition shrink-0 text-left cursor-pointer"
+                className="flex items-center gap-2.5 bg-white px-3 py-2 rounded-2xl hover:bg-[#FAFBF9] transition shrink-0 text-left cursor-pointer"
               >
                 <img
                   src={item.imageDataUrl}
                   alt="Queued receipt"
-                  className="w-8 h-8 rounded-md object-cover bg-slate-100"
+                  className="w-9 h-9 rounded-xl object-cover bg-[#F2F5F2]"
                 />
                 <div>
-                  <div className="text-xs font-medium text-slate-800 truncate max-w-[110px]">
+                  <div className="text-xs font-semibold text-[#0E0F0C] truncate max-w-[120px]">
                     {item.fileName || 'Receipt'}
                   </div>
-                  <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                  <div className="flex items-center gap-1 text-[11px] text-[#5D615C]">
                     {item.status === 'processing' ? (
                       <>
-                        <RefreshCw className="w-2.5 h-2.5 animate-spin text-slate-600" />
+                        <RefreshCw className="w-3 h-3 animate-spin" />
                         <span>Processing</span>
                       </>
                     ) : item.status === 'failed' ? (
                       <>
-                        <AlertCircle className="w-2.5 h-2.5 text-rose-600" />
-                        <span className="text-rose-600">Failed</span>
+                        <AlertCircle className="w-3 h-3 text-[#A8200D]" />
+                        <span className="text-[#A8200D]">Failed</span>
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                        <CheckCircle2 className="w-3 h-3 text-[#2F5711]" />
                         <span>Queued</span>
                       </>
                     )}
@@ -326,223 +347,222 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
               </button>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Empty State */}
-      {transactions.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-10 text-center">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto mb-3">
-            <Receipt className="w-6 h-6" />
-          </div>
-          <h3 className="text-base font-semibold text-slate-900">No transactions yet</h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
-            Take a photo of a receipt, add an expense manually, or load realistic demo data to explore analytics.
-          </p>
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+      {/* Transactions Section */}
+      <section className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-display font-bold text-[#0E0F0C]">
+            Transactions
+          </h2>
+          {transactions.length > 0 && (
             <button
               type="button"
-              onClick={onOpenManualEntry}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs transition cursor-pointer"
+              onClick={onExportSummaryCSV}
+              className="text-sm font-semibold text-[#163300] underline underline-offset-4 hover:opacity-75 transition cursor-pointer"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Add First Expense</span>
+              Export CSV
             </button>
-            <button
-              type="button"
-              onClick={onLoadDemoData}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium text-xs transition cursor-pointer"
-            >
-              <span>Load Realistic Demo Data</span>
-            </button>
-          </div>
+          )}
         </div>
-      ) : (
-        <>
-          {/* Search & Filters */}
-          <div className="bg-white rounded-2xl p-3 border border-slate-200/80 space-y-2.5">
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search merchant, notes, or receipt items..."
-                  className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-xl bg-slate-50 border border-slate-200/80 focus:outline-none focus:bg-white focus:border-emerald-600 transition"
-                />
-              </div>
 
-              <div className="flex items-center gap-1.5">
-                <div className="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs font-medium">
+        {transactions.length === 0 ? (
+          <div className="rounded-3xl bg-[#F2F5F2] p-12 text-center space-y-4">
+            <div className="w-14 h-14 rounded-full bg-white border border-[#E2E5E0] text-[#163300] flex items-center justify-center mx-auto">
+              <Receipt className="w-6 h-6" strokeWidth={1.7} />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-display font-bold text-[#0E0F0C]">
+                No transactions yet
+              </h3>
+              <p className="text-sm text-[#5D615C] max-w-sm mx-auto">
+                Scan a receipt, add an expense manually, or load realistic demo data to explore Manni.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5">
+              <button
+                type="button"
+                onClick={onOpenManualEntry}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-sm transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add first expense</span>
+              </button>
+              <button
+                type="button"
+                onClick={onLoadDemoData}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-white hover:bg-[#E8EDE7] text-[#163300] font-semibold text-sm transition cursor-pointer"
+              >
+                <span>Load demo data</span>
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Minimalist Pill Search & Filters */}
+            <div className="space-y-3.5">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="w-4 h-4 text-[#6A6C6A] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search merchants, notes, or items"
+                    className="w-full pl-11 pr-4 py-2.5 text-sm rounded-full bg-[#F2F5F2] text-[#0E0F0C] placeholder:text-[#6A6C6A] focus:outline-none focus:ring-2 focus:ring-[#163300]/20 transition"
+                  />
+                </div>
+
+                {/* Wise-style Segmented Pill Switch */}
+                <div className="inline-flex rounded-full bg-[#EDF0EC] p-1 text-xs font-semibold self-start sm:self-auto">
                   {(['all', 'expense', 'income'] as const).map((t) => (
                     <button
                       key={t}
                       type="button"
                       onClick={() => setTypeFilter(t)}
-                      className={`px-3 py-1.5 rounded-lg capitalize transition cursor-pointer ${
+                      className={`px-4 py-1.5 rounded-full capitalize transition cursor-pointer ${
                         typeFilter === t
-                          ? 'bg-white text-slate-900 shadow-2xs font-semibold'
-                          : 'text-slate-500 hover:text-slate-900'
+                          ? 'bg-white text-[#163300] shadow-2xs'
+                          : 'text-[#5D615C] hover:text-[#0E0F0C]'
                       }`}
                     >
                       {t}
                     </button>
                   ))}
                 </div>
+              </div>
 
+              {/* Clean Horizontal Category Pills */}
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
                 <button
                   type="button"
-                  onClick={onExportSummaryCSV}
-                  title="Export CSV"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-medium text-slate-700 transition cursor-pointer"
+                  onClick={() => setSelectedCategory('ALL')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer ${
+                    selectedCategory === 'ALL'
+                      ? 'bg-[#163300] text-white'
+                      : 'bg-[#EDF0EC] text-[#5D615C] hover:text-[#0E0F0C]'
+                  }`}
                 >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" />
-                  <span className="hidden md:inline">CSV</span>
+                  All ({transactions.length})
                 </button>
+                {SPENDEE_CATEGORIES.map((cat) => {
+                  const isActive = selectedCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSelectedCategory(isActive ? 'ALL' : cat)}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer ${
+                        isActive
+                          ? 'bg-[#163300] text-white'
+                          : 'bg-[#EDF0EC] text-[#5D615C] hover:text-[#0E0F0C]'
+                      }`}
+                    >
+                      <CategoryIcon category={cat} className="w-3.5 h-3.5" />
+                      <span>{cat}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
-              <button
-                type="button"
-                onClick={() => setSelectedCategory('ALL')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium shrink-0 transition cursor-pointer ${
-                  selectedCategory === 'ALL'
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                All ({transactions.length})
-              </button>
-              {SPENDEE_CATEGORIES.map((cat) => {
-                const isActive = selectedCategory === cat;
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setSelectedCategory(isActive ? 'ALL' : cat)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium shrink-0 transition cursor-pointer ${
-                      isActive
-                        ? 'bg-slate-900 text-white'
-                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
-                  >
-                    <CategoryIcon category={cat} className="w-3 h-3" />
-                    <span>{cat}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Date-Grouped Transaction List */}
-          {groupedByDate.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center border border-slate-200/80">
-              <p className="text-sm text-slate-600">No transactions match your search.</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('');
-                  setSelectedCategory('ALL');
-                  setTypeFilter('all');
-                }}
-                className="mt-2 text-xs font-medium text-emerald-600 hover:underline cursor-pointer"
-              >
-                Clear filters
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {groupedByDate.map((group) => (
-                <div
-                  key={group.date}
-                  className="bg-white rounded-2xl border border-slate-200/80 overflow-hidden"
+            {/* Airy, Borderless Wise-Style Transaction List */}
+            {groupedByDate.length === 0 ? (
+              <div className="py-12 text-center">
+                <p className="text-sm text-[#5D615C]">No transactions match your filter.</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSelectedCategory('ALL');
+                    setTypeFilter('all');
+                  }}
+                  className="mt-2 text-sm font-semibold text-[#163300] underline underline-offset-4 cursor-pointer"
                 >
-                  <div className="px-4 py-2 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-500">
-                      {formatHumanDate(group.date)}
-                    </span>
-                    <span
-                      className={`text-xs font-semibold tabular-nums ${
-                        group.dayTotal < 0 ? 'text-slate-600' : 'text-emerald-600'
-                      }`}
-                    >
-                      {group.dayTotal > 0 ? '+' : ''}
-                      {formatCurrency(group.dayTotal, currency)}
-                    </span>
-                  </div>
+                  Clear filters
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-7 pt-1">
+                {groupedByDate.map((group) => (
+                  <div key={group.date}>
+                    <div className="flex items-center justify-between pb-2.5 border-b border-[#ECEFEA]">
+                      <span className="text-xs font-semibold text-[#6A6C6A]">
+                        {formatHumanDate(group.date)}
+                      </span>
+                      <span
+                        className={`text-xs font-semibold tabular-nums ${
+                          group.dayTotal < 0 ? 'text-[#6A6C6A]' : 'text-[#2F5711]'
+                        }`}
+                      >
+                        {group.dayTotal > 0 ? '+' : ''}
+                        {formatCurrency(group.dayTotal, currency)}
+                      </span>
+                    </div>
 
-                  <div className="divide-y divide-slate-100">
-                    {group.items.map((tx) => {
-                      const meta = CATEGORY_META[tx.category] || CATEGORY_META.Other;
-                      return (
+                    <div className="divide-y divide-[#F2F4F1]">
+                      {group.items.map((tx) => (
                         <button
                           key={tx.id}
                           type="button"
                           onClick={() => onSelectTransaction(tx)}
-                          className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-slate-50/80 transition text-left cursor-pointer group"
+                          className="w-full py-4 -mx-3 px-3 rounded-2xl flex items-center justify-between gap-4 hover:bg-[#F7F9F7] transition text-left cursor-pointer group"
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div
-                              className={`relative w-10 h-10 rounded-xl ${meta.bgLight} ${meta.textColor} flex items-center justify-center shrink-0`}
-                            >
-                              <CategoryIcon category={tx.category} className="w-4 h-4" />
+                          <div className="flex items-center gap-4 min-w-0">
+                            {/* Crisp Wise-Style 44px Circular Outlined Icon */}
+                            <div className="relative w-11 h-11 rounded-full border border-[#E2E5E0] bg-white text-[#163300] flex items-center justify-center shrink-0">
+                              <CategoryIcon category={tx.category} className="w-[18px] h-[18px]" />
                               {tx.receiptImageDataUrl && (
                                 <span
-                                  title="Receipt attached"
-                                  className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white border border-slate-200 text-slate-600 flex items-center justify-center"
+                                  title="Receipt photo attached"
+                                  className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#9FE870] text-[#163300] flex items-center justify-center"
                                 >
                                   <Receipt className="w-2.5 h-2.5" />
                                 </span>
                               )}
                             </div>
 
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-slate-900 text-sm truncate">
-                                  {tx.merchant}
-                                </span>
-                                <span className="text-[11px] text-slate-400 shrink-0">
-                                  {tx.category}
-                                </span>
+                            <div className="min-w-0 space-y-0.5">
+                              <div className="font-semibold text-[#0E0F0C] text-[15px] truncate">
+                                {tx.merchant}
                               </div>
-
-                              <div className="text-xs text-slate-500 truncate mt-0.5">
-                                {tx.note || tx.category}
-                                {tx.lineItems && tx.lineItems.length > 0 && (
-                                  <span className="text-slate-400">
-                                    {' '}
-                                    • {tx.lineItems.length} item{tx.lineItems.length > 1 ? 's' : ''}
-                                  </span>
-                                )}
+                              <div className="text-[13px] text-[#6A6C6A] truncate">
+                                {tx.category}
+                                {tx.lineItems && tx.lineItems.length > 0
+                                  ? ` · ${tx.lineItems.length} item${tx.lineItems.length > 1 ? 's' : ''}`
+                                  : tx.note
+                                  ? ` · ${tx.note}`
+                                  : ''}
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
-                            <div className="text-right tabular-nums">
-                              <div
-                                className={`text-sm font-semibold ${
-                                  tx.type === 'income' ? 'text-emerald-600' : 'text-slate-900'
-                                }`}
-                              >
-                                {tx.type === 'income' ? '+' : '-'}
-                                {formatCurrency(tx.amount, tx.currency || currency)}
-                              </div>
+                          <div className="text-right tabular-nums shrink-0">
+                            <div
+                              className={`text-[15px] font-bold ${
+                                tx.type === 'income' ? 'text-[#2F5711]' : 'text-[#0E0F0C]'
+                              }`}
+                            >
+                              {tx.type === 'income' ? '+' : '-'}
+                              {formatCurrency(tx.amount, tx.currency || currency)}
                             </div>
-                            <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition" />
+                            {tx.note && tx.lineItems && tx.lineItems.length > 0 && (
+                              <div className="text-[12px] text-[#868A84] truncate max-w-[140px]">
+                                {tx.note}
+                              </div>
+                            )}
                           </div>
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </section>
     </div>
   );
 };
