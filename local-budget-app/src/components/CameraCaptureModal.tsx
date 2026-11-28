@@ -110,8 +110,8 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0E0F0C]/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
-      <div className="bg-[#0E0F0C] text-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-[#0B1221]/85 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
+      <div className="bg-[#0B1221] text-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl">
         <input
           ref={fallbackInputRef}
           type="file"
@@ -147,12 +147,12 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
         <div className="relative bg-black aspect-[3/4] sm:aspect-[4/3] flex items-center justify-center overflow-hidden">
           {error ? (
             <div className="p-8 text-center space-y-4 max-w-xs">
-              <AlertCircle className="w-8 h-8 text-[#9FE870] mx-auto" />
+              <AlertCircle className="w-8 h-8 text-[#60A5FA] mx-auto" />
               <p className="text-xs text-white/75 leading-relaxed">{error}</p>
               <button
                 type="button"
                 onClick={() => fallbackInputRef.current?.click()}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] text-xs font-semibold transition cursor-pointer"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-semibold transition cursor-pointer"
               >
                 <Upload className="w-4 h-4" />
                 <span>Open system camera</span>
@@ -171,7 +171,7 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
           )}
         </div>
 
-        <div className="p-5 flex items-center justify-between gap-3 bg-[#0E0F0C]">
+        <div className="p-5 flex items-center justify-between gap-3 bg-[#0B1221]">
           <button
             type="button"
             onClick={() => fallbackInputRef.current?.click()}
@@ -184,7 +184,7 @@ export const CameraCaptureModal: React.FC<CameraCaptureModalProps> = ({
             type="button"
             disabled={!ready || Boolean(error)}
             onClick={handleTakePhoto}
-            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] disabled:opacity-40 text-[#163300] text-sm font-semibold transition cursor-pointer"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-40 text-white text-sm font-semibold transition cursor-pointer"
           >
             <Camera className="w-4 h-4" />
             <span>Capture</span>

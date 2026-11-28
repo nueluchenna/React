@@ -80,10 +80,10 @@ export const QueueView: React.FC<QueueViewProps> = ({
       {/* Header */}
       <section className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-3xl sm:text-4xl font-display font-extrabold text-[#0E0F0C]">
+          <h1 className="text-3xl sm:text-4xl font-display font-extrabold text-[#0B1221]">
             Queue
           </h1>
-          <p className="text-sm text-[#5D615C]">
+          <p className="text-sm text-[#526077]">
             {pendingReceipts.length === 0
               ? 'Receipts captured offline appear here until synced.'
               : `${pendingReceipts.length} receipt${pendingReceipts.length > 1 ? 's' : ''} waiting locally in IndexedDB.`}
@@ -94,7 +94,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
           <button
             type="button"
             onClick={onOpenCamera}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-xs transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs transition cursor-pointer"
           >
             <Camera className="w-3.5 h-3.5" />
             <span>Camera</span>
@@ -103,7 +103,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
           <button
             type="button"
             onClick={onTriggerUpload}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] font-semibold text-xs transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#EBF0F5] hover:bg-[#E1E8F0] text-[#0B1221] font-semibold text-xs transition cursor-pointer"
           >
             <Upload className="w-3.5 h-3.5" />
             <span>Upload</span>
@@ -114,7 +114,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
               type="button"
               disabled={syncingAll}
               onClick={handleSyncAll}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#163300] hover:bg-[#1F4403] disabled:opacity-50 text-white font-semibold text-xs transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#0B1221] hover:bg-[#17233B] disabled:opacity-50 text-white font-semibold text-xs transition cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${syncingAll ? 'animate-spin' : ''}`} />
               <span>{syncingAll ? 'Syncing...' : 'Sync all'}</span>
@@ -125,14 +125,14 @@ export const QueueView: React.FC<QueueViewProps> = ({
 
       {/* Queue List or Calm Empty State */}
       {pendingReceipts.length === 0 ? (
-        <div className="rounded-3xl bg-[#F2F5F2] p-12 text-center space-y-3">
-          <div className="w-12 h-12 rounded-full bg-white border border-[#E2E5E0] text-[#2F5711] flex items-center justify-center mx-auto">
+        <div className="rounded-3xl bg-[#F4F6F9] p-12 text-center space-y-3">
+          <div className="w-12 h-12 rounded-full bg-white border border-[#E2E8F0] text-[#0D9488] flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-5 h-5" strokeWidth={1.8} />
           </div>
-          <h3 className="text-base font-display font-bold text-[#0E0F0C]">
+          <h3 className="text-base font-display font-bold text-[#0B1221]">
             All caught up
           </h3>
-          <p className="text-sm text-[#5D615C] max-w-sm mx-auto">
+          <p className="text-sm text-[#526077] max-w-sm mx-auto">
             Any receipts snapped while offline will wait safely here and sync automatically once you reconnect.
           </p>
         </div>
@@ -145,7 +145,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
             return (
               <div
                 key={item.id}
-                className="bg-[#F2F5F2] rounded-3xl p-5 flex flex-col sm:flex-row gap-4"
+                className="bg-[#F4F6F9] rounded-3xl p-5 flex flex-col sm:flex-row gap-4"
               >
                 <img
                   src={item.imageDataUrl}
@@ -156,7 +156,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                 <div className="flex-1 flex flex-col justify-between min-w-0">
                   <div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-[#0E0F0C] text-sm truncate">
+                      <span className="font-semibold text-[#0B1221] text-sm truncate">
                         {item.fileName || 'Captured receipt'}
                       </span>
                       <span
@@ -164,22 +164,22 @@ export const QueueView: React.FC<QueueViewProps> = ({
                           isStuck
                             ? 'bg-amber-100 text-amber-900'
                             : item.status === 'processing'
-                            ? 'bg-[#163300] text-[#9FE870]'
+                            ? 'bg-[#0B1221] text-[#60A5FA]'
                             : item.status === 'failed'
-                            ? 'bg-[#FDECEC] text-[#A8200D]'
-                            : 'bg-white text-[#163300]'
+                            ? 'bg-[#FEE2E2] text-[#BE123C]'
+                            : 'bg-white text-[#0B1221]'
                         }`}
                       >
                         {isStuck ? 'Interrupted' : item.status}
                       </span>
                     </div>
 
-                    <div className="text-xs text-[#6A6C6A] mt-1">
+                    <div className="text-xs text-[#7C8BA1] mt-1">
                       {new Date(item.createdAt).toLocaleString()}
                     </div>
 
                     {item.errorMessage && (
-                      <div className="mt-2.5 p-2.5 rounded-xl bg-[#FDECEC] text-xs text-[#A8200D] flex items-start gap-1.5">
+                      <div className="mt-2.5 p-2.5 rounded-xl bg-[#FEE2E2] text-xs text-[#BE123C] flex items-start gap-1.5">
                         <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                         <span className="break-words">{item.errorMessage}</span>
                       </div>
@@ -187,12 +187,12 @@ export const QueueView: React.FC<QueueViewProps> = ({
 
                     {isActiveLocally && ocrProgress !== null && (
                       <div className="mt-3">
-                        <div className="text-[11px] font-medium text-[#5D615C] mb-1">
+                        <div className="text-[11px] font-medium text-[#526077] mb-1">
                           Local OCR ({ocrProgress}%)
                         </div>
-                        <div className="h-1.5 bg-[#E0E5DF] rounded-full overflow-hidden">
+                        <div className="h-1.5 bg-[#DCE3EC] rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-[#163300] transition-all"
+                            className="h-full bg-[#2563EB] transition-all"
                             style={{ width: `${ocrProgress}%` }}
                           />
                         </div>
@@ -200,12 +200,12 @@ export const QueueView: React.FC<QueueViewProps> = ({
                     )}
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-[#E2E6E0] flex flex-wrap items-center gap-2">
+                  <div className="mt-4 pt-3 border-t border-[#E2E8F0] flex flex-wrap items-center gap-2">
                     {isStuck ? (
                       <button
                         type="button"
                         onClick={() => handleResetStuck(item.id)}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full bg-[#163300] text-white font-semibold text-xs transition cursor-pointer"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full bg-[#0B1221] text-white font-semibold text-xs transition cursor-pointer"
                       >
                         <RotateCcw className="w-3.5 h-3.5" />
                         <span>Reset</span>
@@ -215,7 +215,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                         type="button"
                         disabled={isActiveLocally}
                         onClick={() => handleProcessItem(item.id, false)}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] disabled:opacity-50 text-[#163300] font-semibold text-xs transition cursor-pointer"
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-50 text-white font-semibold text-xs transition cursor-pointer"
                       >
                         <Sparkles className="w-3.5 h-3.5" />
                         <span>{isActiveLocally ? 'Extracting...' : 'Extract AI'}</span>
@@ -227,7 +227,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                       disabled={isActiveLocally}
                       onClick={() => handleProcessItem(item.id, true)}
                       title="Run offline Tesseract.js OCR"
-                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full bg-white hover:bg-[#E8EDE7] disabled:opacity-50 text-[#163300] font-semibold text-xs transition cursor-pointer"
+                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-full bg-white hover:bg-[#E9EEF5] disabled:opacity-50 text-[#0B1221] font-semibold text-xs transition cursor-pointer"
                     >
                       <ScanText className="w-3.5 h-3.5" />
                       <span>Local OCR</span>
@@ -236,7 +236,7 @@ export const QueueView: React.FC<QueueViewProps> = ({
                     <button
                       type="button"
                       onClick={() => handleDelete(item.id)}
-                      className="w-8 h-8 rounded-full bg-[#FDECEC] text-[#A8200D] hover:bg-[#FADADA] flex items-center justify-center transition cursor-pointer"
+                      className="w-8 h-8 rounded-full bg-[#FEE2E2] text-[#BE123C] hover:bg-[#FECDD3] flex items-center justify-center transition cursor-pointer"
                       title="Remove from queue"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

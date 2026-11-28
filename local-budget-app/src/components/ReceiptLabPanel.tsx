@@ -190,7 +190,6 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
         return;
       }
 
-      // If OpenRouter Direct Vision is active, launch Stage 3 immediately in parallel with Stage 1 OCR!
       const parallelVisionPromise = canRunDirectVisionInParallel
         ? runAiStage(imageDataUrl, undefined, defaultCurrency)
         : null;
@@ -228,24 +227,24 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
   };
 
   return (
-    <section className="rounded-3xl bg-[#F2F5F2] p-6 space-y-5">
+    <section className="rounded-3xl bg-[#F4F6F9] p-6 space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-full bg-white border border-[#E2E5E0] text-[#163300] flex items-center justify-center shrink-0">
+          <div className="w-10 h-10 rounded-full bg-white border border-[#E2E8F0] text-[#0B1221] flex items-center justify-center shrink-0">
             <FlaskConical className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+            <h2 className="font-display font-bold text-[#0B1221] text-base">
               Scanner Lab
             </h2>
-            <p className="text-xs text-[#5D615C] mt-0.5">
+            <p className="text-xs text-[#526077] mt-0.5">
               Inspect Raw OCR, Regex, and AI Vision side by side without saving to your feed.
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-[#E8EDE7] text-[#163300] font-semibold text-xs transition cursor-pointer">
+          <label className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-[#E9EEF5] text-[#0B1221] font-semibold text-xs transition cursor-pointer">
             <Upload className="w-3.5 h-3.5" />
             <span>{imageDataUrl ? 'Change image' : 'Pick receipt'}</span>
             <input
@@ -260,7 +259,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
             type="button"
             disabled={!imageDataUrl || running}
             onClick={() => void handleRunIsolatedStages(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] disabled:opacity-40 text-[#163300] font-semibold text-xs transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-40 text-white font-semibold text-xs transition cursor-pointer"
           >
             {aiLoading ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -274,7 +273,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
             type="button"
             disabled={!imageDataUrl || running}
             onClick={() => void handleRunIsolatedStages(false)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#163300] hover:bg-[#1F4403] disabled:opacity-40 text-white font-semibold text-xs transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#0B1221] hover:bg-[#17233B] disabled:opacity-40 text-white font-semibold text-xs transition cursor-pointer"
           >
             {running ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -287,14 +286,14 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
       </div>
 
       {fileError && (
-        <div className="p-3 rounded-2xl bg-[#FDECEC] text-xs text-[#A8200D] flex items-center gap-2">
+        <div className="p-3 rounded-2xl bg-[#FEE2E2] text-xs text-[#BE123C] flex items-center gap-2">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{fileError}</span>
         </div>
       )}
 
       {!imageDataUrl && (
-        <div className="rounded-2xl bg-white p-6 text-center text-xs text-[#6A6C6A]">
+        <div className="rounded-2xl bg-white p-6 text-center text-xs text-[#7C8BA1]">
           Tap <strong>Pick receipt</strong> above first to load a receipt image, then tap <strong>Test AI only</strong> or <strong>Run 3-stage test</strong>.
         </div>
       )}
@@ -302,7 +301,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
       {imageDataUrl && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="rounded-2xl bg-white p-3.5">
-            <div className="text-[11px] font-semibold text-[#5D615C] mb-2">
+            <div className="text-[11px] font-semibold text-[#526077] mb-2">
               Original (width-preserved)
             </div>
             <img
@@ -313,7 +312,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
           </div>
 
           <div className="rounded-2xl bg-white p-3.5">
-            <div className="text-[11px] font-semibold text-[#5D615C] mb-2">
+            <div className="text-[11px] font-semibold text-[#526077] mb-2">
               Preprocessed (grayscale + contrast)
             </div>
             {ocrResult?.preprocessedDataUrl ? (
@@ -323,7 +322,7 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
                 className="max-h-56 w-auto mx-auto rounded-xl object-contain"
               />
             ) : (
-              <div className="h-44 flex items-center justify-center text-xs text-[#868A84]">
+              <div className="h-44 flex items-center justify-center text-xs text-[#7C8BA1]">
                 {ocrLoading
                   ? `Running OCR (${ocrProgress}%)...`
                   : 'Run 3-stage test to preview preprocessed OCR image'}
@@ -338,29 +337,29 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
           {/* Stage 1: Raw OCR */}
           <div className="rounded-2xl bg-white p-4 flex flex-col">
             <div className="flex items-center justify-between mb-2.5">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0E0F0C]">
-                <ScanText className="w-3.5 h-3.5 text-[#5D615C]" />
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0B1221]">
+                <ScanText className="w-3.5 h-3.5 text-[#526077]" />
                 <span>1. Raw OCR</span>
               </span>
               {ocrResult && (
-                <span className="text-[10px] font-mono text-[#6A6C6A]">
+                <span className="text-[10px] font-mono text-[#7C8BA1]">
                   {ocrResult.durationMs}ms · {ocrResult.confidence}%
                 </span>
               )}
             </div>
 
             {ocrLoading ? (
-              <div className="p-6 text-center text-xs text-[#5D615C] flex flex-col items-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin text-[#163300]" />
+              <div className="p-6 text-center text-xs text-[#526077] flex flex-col items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" />
                 <span>Running Tesseract OCR ({ocrProgress}%)...</span>
               </div>
             ) : ocrError ? (
-              <div className="p-3 rounded-xl bg-[#FDECEC] text-xs text-[#A8200D] flex items-start gap-1.5">
+              <div className="p-3 rounded-xl bg-[#FEE2E2] text-xs text-[#BE123C] flex items-start gap-1.5">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span className="break-words">{ocrError}</span>
               </div>
             ) : (
-              <pre className="text-[11px] font-mono text-[#0E0F0C] bg-[#FAFBF9] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
+              <pre className="text-[11px] font-mono text-[#0B1221] bg-[#F8FAFC] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
                 {ocrResult ? ocrResult.rawText || '(empty OCR text)' : '(Skipped — AI only)'}
               </pre>
             )}
@@ -369,22 +368,22 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
           {/* Stage 2: Regex */}
           <div className="rounded-2xl bg-white p-4 flex flex-col">
             <div className="flex items-center justify-between mb-2.5">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0E0F0C]">
-                <Code2 className="w-3.5 h-3.5 text-[#5D615C]" />
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0B1221]">
+                <Code2 className="w-3.5 h-3.5 text-[#526077]" />
                 <span>2. Regex</span>
               </span>
               {regexResult && (
-                <span className="text-[10px] font-mono text-[#6A6C6A]">
+                <span className="text-[10px] font-mono text-[#7C8BA1]">
                   {regexResult.durationMs}ms · {regexResult.totalAmount}
                 </span>
               )}
             </div>
             {ocrLoading ? (
-              <div className="p-6 text-center text-xs text-[#868A84]">
+              <div className="p-6 text-center text-xs text-[#7C8BA1]">
                 Waiting for Stage 1 OCR...
               </div>
             ) : (
-              <pre className="text-[11px] font-mono text-[#0E0F0C] bg-[#FAFBF9] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
+              <pre className="text-[11px] font-mono text-[#0B1221] bg-[#F8FAFC] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
                 {regexResult ? JSON.stringify(regexResult, null, 2) : '(Skipped — AI only)'}
               </pre>
             )}
@@ -393,28 +392,28 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
           {/* Stage 3: AI Vision / LLM */}
           <div className="rounded-2xl bg-white p-4 flex flex-col">
             <div className="flex items-center justify-between mb-2.5 gap-2">
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0E0F0C] truncate">
-                <Sparkles className="w-3.5 h-3.5 text-[#2F5711] shrink-0" />
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0B1221] truncate">
+                <Sparkles className="w-3.5 h-3.5 text-[#2563EB] shrink-0" />
                 <span className="truncate">3. {aiResult?.providerLabel || 'AI Output'}</span>
               </span>
               {aiResult && (
-                <span className="text-[10px] font-mono text-[#6A6C6A] shrink-0">
+                <span className="text-[10px] font-mono text-[#7C8BA1] shrink-0">
                   {aiResult.durationMs}ms · {aiResult.modeLabel}
                 </span>
               )}
             </div>
             {aiLoading ? (
-              <div className="p-6 text-center text-xs text-[#5D615C] flex flex-col items-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin text-[#163300]" />
+              <div className="p-6 text-center text-xs text-[#526077] flex flex-col items-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" />
                 <span>Calling AI model...</span>
               </div>
             ) : aiError ? (
-              <div className="p-3 rounded-xl bg-[#FDECEC] text-xs text-[#A8200D] flex items-start gap-1.5">
+              <div className="p-3 rounded-xl bg-[#FEE2E2] text-xs text-[#BE123C] flex items-start gap-1.5">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                 <span className="break-words">{aiError}</span>
               </div>
             ) : (
-              <pre className="text-[11px] font-mono text-[#0E0F0C] bg-[#FAFBF9] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
+              <pre className="text-[11px] font-mono text-[#0B1221] bg-[#F8FAFC] rounded-xl p-3 overflow-auto max-h-72 whitespace-pre-wrap">
                 {aiResult ? JSON.stringify(aiResult.data, null, 2) : '—'}
               </pre>
             )}

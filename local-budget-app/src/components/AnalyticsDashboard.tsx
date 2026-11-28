@@ -165,7 +165,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         ...item,
         amount: Number(item.amount.toFixed(2)),
         percentage: totalSpent > 0 ? (item.amount / totalSpent) * 100 : 0,
-        color: CATEGORY_META[item.category]?.color || '#5D615C',
+        color: CATEGORY_META[item.category]?.color || '#526077',
       }));
   }, [expenses, totalSpent]);
 
@@ -309,22 +309,22 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
   if (transactions.length === 0) {
     return (
-      <div className="rounded-3xl bg-[#F2F5F2] p-12 text-center space-y-4">
-        <div className="w-14 h-14 rounded-full bg-white border border-[#E2E5E0] text-[#163300] flex items-center justify-center mx-auto">
+      <div className="rounded-3xl bg-[#F4F6F9] p-12 text-center space-y-4">
+        <div className="w-14 h-14 rounded-full bg-white border border-[#E2E8F0] text-[#0B1221] flex items-center justify-center mx-auto">
           <BarChart3 className="w-6 h-6" strokeWidth={1.7} />
         </div>
         <div className="space-y-1">
-          <h3 className="text-base font-display font-bold text-[#0E0F0C]">
+          <h3 className="text-base font-display font-bold text-[#0B1221]">
             No analytics data yet
           </h3>
-          <p className="text-sm text-[#5D615C] max-w-sm mx-auto">
+          <p className="text-sm text-[#526077] max-w-sm mx-auto">
             Add your first expense or load demo data to view spending breakdowns, savings rate, and trends.
           </p>
         </div>
         <button
           type="button"
           onClick={onLoadDemoData}
-          className="px-5 py-2.5 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-sm transition cursor-pointer"
+          className="px-5 py-2.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm transition cursor-pointer"
         >
           Load demo data
         </button>
@@ -338,15 +338,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       <section className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-3xl sm:text-4xl font-display font-extrabold text-[#0E0F0C]">
+            <h1 className="text-3xl sm:text-4xl font-display font-extrabold text-[#0B1221]">
               Analytics
             </h1>
-            <p className="text-sm text-[#5D615C] tabular-nums">
-              Spent <strong className="text-[#0E0F0C]">{formatCurrency(totalSpent, currency)}</strong>
+            <p className="text-sm text-[#526077] tabular-nums">
+              Spent <strong className="text-[#0B1221]">{formatCurrency(totalSpent, currency)}</strong>
               {totalIncome > 0 && (
                 <>
                   {' '}
-                  · Income <strong className="text-[#2F5711]">{formatCurrency(totalIncome, currency)}</strong>
+                  · Income <strong className="text-[#0D9488]">{formatCurrency(totalIncome, currency)}</strong>
                 </>
               )}
             </p>
@@ -368,8 +368,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 onClick={() => setPeriod(tab.id)}
                 className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
                   period === tab.id
-                    ? 'bg-[#163300] text-white'
-                    : 'bg-[#EDF0EC] text-[#5D615C] hover:text-[#0E0F0C]'
+                    ? 'bg-[#0B1221] text-white'
+                    : 'bg-[#EBF0F5] text-[#526077] hover:text-[#0B1221]'
                 }`}
               >
                 {tab.label}
@@ -381,7 +381,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 type="month"
                 value={customMonth}
                 onChange={(e) => setCustomMonth(e.target.value)}
-                className="px-3 py-1.5 rounded-full bg-[#F2F5F2] text-xs font-semibold text-[#0E0F0C]"
+                className="px-3 py-1.5 rounded-full bg-[#F4F6F9] text-xs font-semibold text-[#0B1221]"
               />
             )}
           </div>
@@ -392,22 +392,22 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-5 space-y-5">
           {/* Savings Card */}
-          <div className="bg-[#F2F5F2] rounded-3xl p-6 space-y-5">
+          <div className="bg-[#F4F6F9] rounded-3xl p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+              <h2 className="font-display font-bold text-[#0B1221] text-base">
                 Savings
               </h2>
-              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-white text-[#163300] tabular-nums">
+              <span className="text-xs font-semibold px-3 py-1 rounded-full bg-white text-[#0B1221] tabular-nums">
                 {totalIncome > 0 ? `${savingsRate.toFixed(1)}% rate` : 'No income yet'}
               </span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <div className="text-xs text-[#5D615C]">Period net saved</div>
+                <div className="text-xs text-[#526077]">Period net saved</div>
                 <div
                   className={`text-2xl font-display font-bold tabular-nums mt-1 ${
-                    netSavings >= 0 ? 'text-[#2F5711]' : 'text-[#A8200D]'
+                    netSavings >= 0 ? 'text-[#0D9488]' : 'text-[#BE123C]'
                   }`}
                 >
                   {netSavings >= 0 ? '+' : ''}
@@ -415,10 +415,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 </div>
               </div>
               <div>
-                <div className="text-xs text-[#5D615C]">This month</div>
+                <div className="text-xs text-[#526077]">This month</div>
                 <div
                   className={`text-2xl font-display font-bold tabular-nums mt-1 ${
-                    currentMonthMetrics.saved >= 0 ? 'text-[#0E0F0C]' : 'text-[#A8200D]'
+                    currentMonthMetrics.saved >= 0 ? 'text-[#0B1221]' : 'text-[#BE123C]'
                   }`}
                 >
                   {formatCurrency(currentMonthMetrics.saved, currency)}
@@ -429,15 +429,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             {/* Monthly Savings Goal Bar */}
             <div className="pt-2 space-y-2">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-medium text-[#5D615C]">Monthly goal</span>
-                <span className="font-semibold tabular-nums text-[#0E0F0C]">
+                <span className="font-medium text-[#526077]">Monthly goal</span>
+                <span className="font-semibold tabular-nums text-[#0B1221]">
                   {formatCurrency(Math.max(0, currentMonthMetrics.saved), currency)} /{' '}
                   {formatCurrency(monthlySavingsGoal, currency)}
                 </span>
               </div>
-              <div className="h-2 bg-[#E0E5DF] rounded-full overflow-hidden">
+              <div className="h-2 bg-[#DCE3EC] rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-[#163300] transition-all duration-500"
+                  className="h-full rounded-full bg-[#2563EB] transition-all duration-500"
                   style={{ width: `${Math.min(100, currentMonthMetrics.savingsGoalPct)}%` }}
                 />
               </div>
@@ -445,28 +445,28 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           </div>
 
           {/* Monthly Budget Card */}
-          <div className="bg-[#F2F5F2] rounded-3xl p-6 space-y-4">
+          <div className="bg-[#F4F6F9] rounded-3xl p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+              <h2 className="font-display font-bold text-[#0B1221] text-base">
                 Monthly budget
               </h2>
-              <span className="text-xs font-semibold tabular-nums text-[#5D615C]">
+              <span className="text-xs font-semibold tabular-nums text-[#526077]">
                 {currentMonthMetrics.budgetPct.toFixed(0)}% used
               </span>
             </div>
 
-            <div className="relative h-2 bg-[#E0E5DF] rounded-full overflow-hidden">
+            <div className="relative h-2 bg-[#DCE3EC] rounded-full overflow-hidden">
               <div
-                className="absolute top-0 bottom-0 left-[75%] w-0.5 bg-[#0E0F0C]/25 z-10"
+                className="absolute top-0 bottom-0 left-[75%] w-0.5 bg-[#0B1221]/25 z-10"
                 title="75% warning"
               />
               <div
                 className={`h-full rounded-full transition-all duration-500 ${
                   currentMonthMetrics.budgetPct >= 100
-                    ? 'bg-[#A8200D]'
+                    ? 'bg-[#BE123C]'
                     : currentMonthMetrics.budgetPct >= 75
                     ? 'bg-amber-600'
-                    : 'bg-[#163300]'
+                    : 'bg-[#2563EB]'
                 }`}
                 style={{ width: `${Math.min(100, currentMonthMetrics.budgetPct)}%` }}
               />
@@ -474,7 +474,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
 
             <div className="text-xs font-medium">
               {currentMonthMetrics.budgetPct >= 100 ? (
-                <span className="inline-flex items-center gap-1.5 text-[#A8200D]">
+                <span className="inline-flex items-center gap-1.5 text-[#BE123C]">
                   <AlertTriangle className="w-3.5 h-3.5" />
                   Over budget by {formatCurrency(currentMonthMetrics.spent - monthlyBudget, currency)}
                 </span>
@@ -484,7 +484,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   {formatCurrency(monthlyBudget - currentMonthMetrics.spent, currency)} left before limit
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1.5 text-[#2F5711]">
+                <span className="inline-flex items-center gap-1.5 text-[#0D9488]">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   {formatCurrency(monthlyBudget - currentMonthMetrics.spent, currency)} remaining this month
                 </span>
@@ -502,14 +502,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     const pct = b.monthlyLimit > 0 ? (spentInCat / b.monthlyLimit) * 100 : 0;
                     return (
                       <div key={b.id} className="p-3 rounded-2xl bg-white">
-                        <div className="flex items-center justify-between text-[11px] font-semibold text-[#0E0F0C] mb-1.5">
+                        <div className="flex items-center justify-between text-[11px] font-semibold text-[#0B1221] mb-1.5">
                           <span className="truncate">{cat}</span>
-                          <span className="tabular-nums text-[#5D615C]">{pct.toFixed(0)}%</span>
+                          <span className="tabular-nums text-[#526077]">{pct.toFixed(0)}%</span>
                         </div>
-                        <div className="h-1 bg-[#ECEFEA] rounded-full overflow-hidden">
+                        <div className="h-1 bg-[#EBF0F5] rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full ${
-                              pct >= 100 ? 'bg-[#A8200D]' : pct >= 75 ? 'bg-amber-600' : 'bg-[#163300]'
+                              pct >= 100 ? 'bg-[#BE123C]' : pct >= 75 ? 'bg-amber-600' : 'bg-[#2563EB]'
                             }`}
                             style={{ width: `${Math.min(100, pct)}%` }}
                           />
@@ -523,12 +523,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         </div>
 
         {/* Monthly Cashflow & Net Savings Chart */}
-        <div className="lg:col-span-7 bg-[#F2F5F2] rounded-3xl p-6 flex flex-col justify-between">
+        <div className="lg:col-span-7 bg-[#F4F6F9] rounded-3xl p-6 flex flex-col justify-between">
           <div className="mb-5">
-            <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+            <h2 className="font-display font-bold text-[#0B1221] text-base">
               Income, expenses & savings
             </h2>
-            <p className="text-xs text-[#5D615C] mt-0.5">
+            <p className="text-xs text-[#526077] mt-0.5">
               Monthly cashflow retention overview
             </p>
           </div>
@@ -539,14 +539,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                 data={monthlySavingsSeries}
                 margin={{ top: 8, right: 8, left: -12, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#E2E6E0" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#5D615C' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#5D615C' }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#526077' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#526077' }} axisLine={false} tickLine={false} />
                 <Tooltip formatter={(value) => formatCurrency(Number(value), currency)} />
                 <Legend wrapperStyle={{ fontSize: '12px' }} />
-                <Bar dataKey="income" name="Income" fill="#9FE870" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="expenses" name="Expenses" fill="#B8C2B5" radius={[6, 6, 0, 0]} />
-                <Bar dataKey="savings" name="Net savings" fill="#163300" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="income" name="Income" fill="#0D9488" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="expenses" name="Expenses" fill="#94A3B8" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="savings" name="Net savings" fill="#2563EB" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -556,7 +556,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       {/* Plain-English Insights & AI Coach */}
       <section className="space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="text-xl font-display font-bold text-[#0E0F0C]">
+          <h2 className="text-xl font-display font-bold text-[#0B1221]">
             Insights
           </h2>
 
@@ -564,7 +564,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             type="button"
             disabled={loadingCoach}
             onClick={handleRunAICoach}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-xs transition cursor-pointer self-start sm:self-auto"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-xs transition cursor-pointer self-start sm:self-auto"
           >
             {loadingCoach ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />
@@ -586,26 +586,26 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             {smartInsights.cards.map((card, i) => (
               <div
                 key={i}
-                className="p-5 rounded-3xl bg-[#F2F5F2] flex flex-col justify-between gap-3"
+                className="p-5 rounded-3xl bg-[#F4F6F9] flex flex-col justify-between gap-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-[#5D615C]">
+                  <span className="text-xs font-semibold text-[#526077]">
                     {card.title}
                   </span>
-                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white text-[#163300] tabular-nums">
+                  <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white text-[#2563EB] tabular-nums">
                     {card.badge}
                   </span>
                 </div>
-                <p className="text-xs text-[#0E0F0C] leading-relaxed">{card.text}</p>
+                <p className="text-xs text-[#0B1221] leading-relaxed">{card.text}</p>
               </div>
             ))}
           </div>
         )}
 
         {coachAdvice && (
-          <div className="rounded-3xl bg-[#163300] text-white p-6 sm:p-7 space-y-5">
+          <div className="rounded-3xl bg-[#0B1221] text-white p-6 sm:p-7 space-y-5">
             <div className="space-y-1">
-              <span className="text-[11px] font-semibold text-[#9FE870] uppercase tracking-wider">
+              <span className="text-[11px] font-semibold text-[#60A5FA] uppercase tracking-wider">
                 {coachAdvice.source === 'openrouter'
                   ? 'OpenRouter Financial Coach'
                   : coachAdvice.source === 'groq'
@@ -622,7 +622,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             <ul className="space-y-1.5 text-xs sm:text-sm text-white/80">
               {coachAdvice.habitBreakdown.map((bullet, idx) => (
                 <li key={idx} className="flex items-start gap-2">
-                  <span className="text-[#9FE870]">·</span>
+                  <span className="text-[#60A5FA]">·</span>
                   <span>{bullet}</span>
                 </li>
               ))}
@@ -638,7 +638,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     <span className="text-[11px] font-medium text-white/60">
                       Step {idx + 1}
                     </span>
-                    <span className="text-[11px] font-bold text-[#9FE870] tabular-nums">
+                    <span className="text-[11px] font-bold text-[#60A5FA] tabular-nums">
                       ~{tip.estimatedMonthlySavings}
                     </span>
                   </div>
@@ -654,12 +654,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
       {/* Categories & Spending Trend */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Donut & Category List */}
-        <div className="lg:col-span-5 bg-[#F2F5F2] rounded-3xl p-6 flex flex-col">
+        <div className="lg:col-span-5 bg-[#F4F6F9] rounded-3xl p-6 flex flex-col">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+            <h2 className="font-display font-bold text-[#0B1221] text-base">
               By category
             </h2>
-            <span className="text-xs text-[#5D615C]">{categoryBreakdown.length} active</span>
+            <span className="text-xs text-[#526077]">{categoryBreakdown.length} active</span>
           </div>
 
           <div className="relative h-60 w-full">
@@ -676,7 +676,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   paddingAngle={2}
                 >
                   {categoryBreakdown.map((entry) => (
-                    <Cell key={entry.category} fill={entry.color} stroke="#F2F5F2" strokeWidth={2} />
+                    <Cell key={entry.category} fill={entry.color} stroke="#F4F6F9" strokeWidth={2} />
                   ))}
                 </Pie>
                 <Tooltip formatter={(value) => formatCurrency(Number(value), currency)} />
@@ -684,8 +684,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             </ResponsiveContainer>
 
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-[11px] font-medium text-[#5D615C]">Total</span>
-              <span className="text-base font-display font-bold tabular-nums text-[#0E0F0C]">
+              <span className="text-[11px] font-medium text-[#526077]">Total</span>
+              <span className="text-base font-display font-bold tabular-nums text-[#0B1221]">
                 {formatCurrency(totalSpent, currency)}
               </span>
             </div>
@@ -702,12 +702,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                     className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span className="font-semibold text-[#0E0F0C] truncate">{item.category}</span>
-                  <span className="text-[#6A6C6A]">({item.count})</span>
+                  <span className="font-semibold text-[#0B1221] truncate">{item.category}</span>
+                  <span className="text-[#7C8BA1]">({item.count})</span>
                 </div>
                 <div className="flex items-center gap-3 shrink-0 tabular-nums">
-                  <span className="text-[#5D615C]">{item.percentage.toFixed(0)}%</span>
-                  <span className="font-bold text-[#0E0F0C] w-20 text-right">
+                  <span className="text-[#526077]">{item.percentage.toFixed(0)}%</span>
+                  <span className="font-bold text-[#0B1221] w-20 text-right">
                     {formatCurrency(item.amount, currency)}
                   </span>
                 </div>
@@ -717,10 +717,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         </div>
 
         {/* Trend & Top Merchants */}
-        <div className="lg:col-span-7 bg-[#F2F5F2] rounded-3xl p-6 flex flex-col justify-between gap-6">
+        <div className="lg:col-span-7 bg-[#F4F6F9] rounded-3xl p-6 flex flex-col justify-between gap-6">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-display font-bold text-[#0E0F0C] text-base">
+              <h2 className="font-display font-bold text-[#0B1221] text-base">
                 Daily spending
               </h2>
 
@@ -730,8 +730,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   onClick={() => setTrendChartType('area')}
                   className={`px-3 py-1 rounded-full transition cursor-pointer ${
                     trendChartType === 'area'
-                      ? 'bg-[#163300] text-white'
-                      : 'text-[#5D615C]'
+                      ? 'bg-[#0B1221] text-white'
+                      : 'text-[#526077]'
                   }`}
                 >
                   Area
@@ -741,8 +741,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   onClick={() => setTrendChartType('bar')}
                   className={`px-3 py-1 rounded-full transition cursor-pointer ${
                     trendChartType === 'bar'
-                      ? 'bg-[#163300] text-white'
-                      : 'text-[#5D615C]'
+                      ? 'bg-[#0B1221] text-white'
+                      : 'text-[#526077]'
                   }`}
                 >
                   Bars
@@ -756,18 +756,18 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   <AreaChart data={trendData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
                     <defs>
                       <linearGradient id="manniSpendGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#163300" stopOpacity={0.22} />
-                        <stop offset="95%" stopColor="#163300" stopOpacity={0.01} />
+                        <stop offset="5%" stopColor="#2563EB" stopOpacity={0.24} />
+                        <stop offset="95%" stopColor="#2563EB" stopOpacity={0.01} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E6E0" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#5D615C' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#5D615C' }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#526077' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#526077' }} axisLine={false} tickLine={false} />
                     <Tooltip formatter={(val) => [formatCurrency(Number(val), currency), 'Spent']} />
                     <Area
                       type="monotone"
                       dataKey="amount"
-                      stroke="#163300"
+                      stroke="#2563EB"
                       strokeWidth={2.2}
                       fillOpacity={1}
                       fill="url(#manniSpendGrad)"
@@ -775,11 +775,11 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
                   </AreaChart>
                 ) : (
                   <BarChart data={trendData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E6E0" vertical={false} />
-                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#5D615C' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#5D615C' }} axisLine={false} tickLine={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#526077' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: '#526077' }} axisLine={false} tickLine={false} />
                     <Tooltip formatter={(val) => [formatCurrency(Number(val), currency), 'Spent']} />
-                    <Bar dataKey="amount" fill="#163300" radius={[6, 6, 0, 0]} />
+                    <Bar dataKey="amount" fill="#2563EB" radius={[6, 6, 0, 0]} />
                   </BarChart>
                 )}
               </ResponsiveContainer>
@@ -787,8 +787,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           </div>
 
           {/* Top Merchants */}
-          <div className="pt-5 border-t border-[#E2E6E0] space-y-3.5">
-            <h3 className="font-display font-bold text-[#0E0F0C] text-sm">
+          <div className="pt-5 border-t border-[#E2E8F0] space-y-3.5">
+            <h3 className="font-display font-bold text-[#0B1221] text-sm">
               Top merchants
             </h3>
 
@@ -796,20 +796,20 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
               {topMerchants.map((m) => (
                 <div key={m.merchant} className="space-y-1.5">
                   <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2.5 font-semibold text-[#0E0F0C]">
-                      <span className="w-7 h-7 rounded-full bg-white text-[#163300] flex items-center justify-center">
+                    <div className="flex items-center gap-2.5 font-semibold text-[#0B1221]">
+                      <span className="w-7 h-7 rounded-full bg-white text-[#0B1221] flex items-center justify-center">
                         <CategoryIcon category={m.category} className="w-3.5 h-3.5" />
                       </span>
                       <span>{m.merchant}</span>
-                      <span className="text-[#6A6C6A] font-normal">{m.count}×</span>
+                      <span className="text-[#7C8BA1] font-normal">{m.count}×</span>
                     </div>
-                    <div className="font-bold tabular-nums text-[#0E0F0C]">
+                    <div className="font-bold tabular-nums text-[#0B1221]">
                       {formatCurrency(m.amount, currency)}
                     </div>
                   </div>
-                  <div className="h-1.5 bg-[#E0E5DF] rounded-full overflow-hidden">
+                  <div className="h-1.5 bg-[#DCE3EC] rounded-full overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-[#163300]"
+                      className="h-full rounded-full bg-[#2563EB]"
                       style={{ width: `${Math.min(100, m.percentage)}%` }}
                     />
                   </div>

@@ -14,7 +14,7 @@ export default defineConfig({
         name: 'Manni — Personal Finance & Receipt Tracker',
         short_name: 'Manni',
         description: 'Minimalist local-first personal finance & receipt tracker',
-        theme_color: '#163300',
+        theme_color: '#0B1221',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait-primary',

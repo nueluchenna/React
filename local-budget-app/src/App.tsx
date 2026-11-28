@@ -239,7 +239,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-[#0E0F0C] flex flex-col">
+    <div className="min-h-screen bg-white text-[#0B1221] flex flex-col">
       <input
         ref={fileInputRef}
         type="file"
@@ -249,7 +249,7 @@ export default function App() {
         className="hidden"
       />
 
-      {/* Minimal Wise/Revolut Top Bar */}
+      {/* Minimal Manni Top Bar */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md">
         <div className="max-w-4xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-4">
           {/* Manni Brand Identity Mark */}
@@ -258,16 +258,17 @@ export default function App() {
             onClick={() => setActiveTab('feed')}
             className="flex items-center gap-2.5 cursor-pointer group"
           >
-            <div className="w-9 h-9 rounded-full bg-[#9FE870] flex items-center justify-center transition-transform group-hover:scale-105">
+            <div className="relative w-9 h-9 rounded-xl bg-[#0B1221] flex items-center justify-center transition-transform group-hover:scale-105">
               <svg
                 viewBox="0 0 24 24"
-                className="w-4 h-4 fill-[#163300]"
+                className="w-4 h-4 fill-white"
                 aria-hidden="true"
               >
                 <path d="M3.5 19V5h3.2L12 13.4 17.3 5h3.2v14h-3v-8.8L13.1 17h-2.2L6.5 10.2V19h-3Z" />
               </svg>
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#2563EB] ring-2 ring-white" />
             </div>
-            <span className="font-display font-extrabold text-[#163300] text-lg tracking-tight">
+            <span className="font-display font-extrabold text-[#0B1221] text-lg tracking-tight">
               manni
             </span>
           </button>
@@ -290,13 +291,13 @@ export default function App() {
                   onClick={() => setActiveTab(item.id)}
                   className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm transition cursor-pointer ${
                     active
-                      ? 'bg-[#EDF0EC] text-[#163300] font-semibold'
-                      : 'text-[#5D615C] hover:text-[#0E0F0C] hover:bg-[#F7F8F6] font-medium'
+                      ? 'bg-[#EBF0F5] text-[#0B1221] font-semibold'
+                      : 'text-[#526077] hover:text-[#0B1221] hover:bg-[#F4F6F9] font-medium'
                   }`}
                 >
                   <span>{item.label}</span>
                   {'badge' in item && item.badge ? (
-                    <span className="px-1.5 py-0.2 rounded-full bg-[#163300] text-[#9FE870] text-[10px] font-bold">
+                    <span className="px-1.5 py-0.2 rounded-full bg-[#2563EB] text-white text-[10px] font-bold">
                       {item.badge}
                     </span>
                   ) : null}
@@ -305,20 +306,20 @@ export default function App() {
             })}
           </nav>
 
-          {/* Compact Wise-style Connection Status Pill */}
+          {/* Compact Connection Status Pill */}
           <button
             type="button"
             onClick={handleToggleSimulateOffline}
             title="Toggle simulated offline mode"
             className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
               isEffectivelyOffline
-                ? 'bg-[#FDECEC] text-[#A8200D]'
-                : 'bg-[#EDF0EC] text-[#163300] hover:bg-[#E2E7E0]'
+                ? 'bg-[#FEE2E2] text-[#BE123C]'
+                : 'bg-[#EBF0F5] text-[#0B1221] hover:bg-[#E1E8F0]'
             }`}
           >
             <span
               className={`w-2 h-2 rounded-full ${
-                isEffectivelyOffline ? 'bg-[#A8200D]' : 'bg-[#2F5711]'
+                isEffectivelyOffline ? 'bg-[#BE123C]' : 'bg-[#0D9488]'
               }`}
             />
             <span>{isEffectivelyOffline ? 'Offline' : 'Online'}</span>
@@ -334,19 +335,17 @@ export default function App() {
               key={t.id}
               className={`pointer-events-auto flex items-start justify-between gap-3 px-4 py-3.5 rounded-2xl shadow-lg transition-all ${
                 t.type === 'error'
-                  ? 'bg-[#A8200D] text-white'
-                  : t.type === 'warning'
-                  ? 'bg-[#163300] text-[#EBF6E2]'
-                  : 'bg-[#163300] text-white'
+                  ? 'bg-[#BE123C] text-white'
+                  : 'bg-[#0B1221] text-white'
               }`}
             >
               <div className="flex items-start gap-2.5 text-xs leading-relaxed">
                 {t.type === 'error' || t.type === 'warning' ? (
-                  <AlertCircle className="w-4 h-4 text-[#9FE870] shrink-0 mt-0.5" />
+                  <AlertCircle className="w-4 h-4 text-[#60A5FA] shrink-0 mt-0.5" />
                 ) : t.type === 'queued' ? (
-                  <Clock className="w-4 h-4 text-[#9FE870] shrink-0 mt-0.5" />
+                  <Clock className="w-4 h-4 text-[#60A5FA] shrink-0 mt-0.5" />
                 ) : (
-                  <CheckCircle2 className="w-4 h-4 text-[#9FE870] shrink-0 mt-0.5" />
+                  <CheckCircle2 className="w-4 h-4 text-[#2DD4BF] shrink-0 mt-0.5" />
                 )}
                 <div className="space-y-1.5">
                   <div className="font-medium">{t.message}</div>
@@ -354,7 +353,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => void handleUndoDelete(t.undoTransaction!, t.id)}
-                      className="inline-flex items-center gap-1 text-[#9FE870] hover:underline font-semibold cursor-pointer"
+                      className="inline-flex items-center gap-1 text-[#60A5FA] hover:underline font-semibold cursor-pointer"
                     >
                       <RotateCcw className="w-3 h-3" />
                       <span>Undo delete</span>
@@ -435,14 +434,14 @@ export default function App() {
       {/* Mobile Add / Scan Bottom Sheet */}
       {showAddActionMenu && (
         <div
-          className="fixed inset-0 z-40 bg-[#0E0F0C]/35 backdrop-blur-xs flex items-end justify-center p-4 pb-24 sm:pb-8"
+          className="fixed inset-0 z-40 bg-[#0B1221]/40 backdrop-blur-xs flex items-end justify-center p-4 pb-24 sm:pb-8"
           onClick={() => setShowAddActionMenu(false)}
         >
           <div
             className="bg-white rounded-3xl p-4 shadow-2xl w-full max-w-sm space-y-2"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-3 pt-1 pb-2 text-xs font-semibold text-[#5D615C]">
+            <div className="px-3 pt-1 pb-2 text-xs font-semibold text-[#526077]">
               Quick actions
             </div>
             <button
@@ -451,7 +450,7 @@ export default function App() {
                 setShowAddActionMenu(false);
                 setShowCameraModal(true);
               }}
-              className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-sm transition cursor-pointer"
+              className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm transition cursor-pointer"
             >
               <Camera className="w-4 h-4" />
               <span>Scan receipt with camera</span>
@@ -460,18 +459,18 @@ export default function App() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-[#F2F5F2] hover:bg-[#E8EDE7] text-[#0E0F0C] font-medium text-sm transition cursor-pointer"
+              className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-[#F4F6F9] hover:bg-[#E9EEF5] text-[#0B1221] font-medium text-sm transition cursor-pointer"
             >
-              <Upload className="w-4 h-4 text-[#163300]" />
+              <Upload className="w-4 h-4 text-[#2563EB]" />
               <span>Upload receipt photo</span>
             </button>
 
             <button
               type="button"
               onClick={handleClipboardButtonPaste}
-              className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-[#F2F5F2] hover:bg-[#E8EDE7] text-[#0E0F0C] font-medium text-sm transition cursor-pointer"
+              className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-[#F4F6F9] hover:bg-[#E9EEF5] text-[#0B1221] font-medium text-sm transition cursor-pointer"
             >
-              <ClipboardPaste className="w-4 h-4 text-[#163300]" />
+              <ClipboardPaste className="w-4 h-4 text-[#2563EB]" />
               <span>Paste screenshot</span>
             </button>
 
@@ -481,24 +480,24 @@ export default function App() {
                 setShowAddActionMenu(false);
                 setShowManualModal(true);
               }}
-              className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-[#F2F5F2] hover:bg-[#E8EDE7] text-[#0E0F0C] font-medium text-sm transition cursor-pointer"
+              className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-[#F4F6F9] hover:bg-[#E9EEF5] text-[#0B1221] font-medium text-sm transition cursor-pointer"
             >
-              <Plus className="w-4 h-4 text-[#163300]" />
+              <Plus className="w-4 h-4 text-[#2563EB]" />
               <span>Add manual transaction</span>
             </button>
           </div>
         </div>
       )}
 
-      {/* Flat Wise-Style Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#ECEFEA] px-3 py-2 flex items-center justify-around">
+      {/* Flat Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#E6EAF0] px-3 py-2 flex items-center justify-around">
         <button
           type="button"
           onClick={() => setActiveTab('feed')}
           className={`flex flex-col items-center gap-1 py-1 px-3 text-[11px] cursor-pointer transition ${
             activeTab === 'feed'
-              ? 'text-[#163300] font-semibold'
-              : 'text-[#6A6C6A] font-medium'
+              ? 'text-[#0B1221] font-semibold'
+              : 'text-[#7C8BA1] font-medium'
           }`}
         >
           <Home className="w-5 h-5" strokeWidth={activeTab === 'feed' ? 2.2 : 1.7} />
@@ -510,8 +509,8 @@ export default function App() {
           onClick={() => setActiveTab('analytics')}
           className={`flex flex-col items-center gap-1 py-1 px-3 text-[11px] cursor-pointer transition ${
             activeTab === 'analytics'
-              ? 'text-[#163300] font-semibold'
-              : 'text-[#6A6C6A] font-medium'
+              ? 'text-[#0B1221] font-semibold'
+              : 'text-[#7C8BA1] font-medium'
           }`}
         >
           <BarChart2 className="w-5 h-5" strokeWidth={activeTab === 'analytics' ? 2.2 : 1.7} />
@@ -521,7 +520,7 @@ export default function App() {
         <button
           type="button"
           onClick={() => setShowAddActionMenu((v) => !v)}
-          className="flex items-center justify-center w-11 h-11 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] transition cursor-pointer"
+          className="flex items-center justify-center w-11 h-11 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white transition cursor-pointer"
           aria-label="Quick actions"
         >
           <Plus className="w-5 h-5" strokeWidth={2.5} />
@@ -532,14 +531,14 @@ export default function App() {
           onClick={() => setActiveTab('queue')}
           className={`relative flex flex-col items-center gap-1 py-1 px-3 text-[11px] cursor-pointer transition ${
             activeTab === 'queue'
-              ? 'text-[#163300] font-semibold'
-              : 'text-[#6A6C6A] font-medium'
+              ? 'text-[#0B1221] font-semibold'
+              : 'text-[#7C8BA1] font-medium'
           }`}
         >
           <Clock className="w-5 h-5" strokeWidth={activeTab === 'queue' ? 2.2 : 1.7} />
           <span>Queue</span>
           {pendingReceipts.length > 0 && (
-            <span className="absolute top-0.5 right-2 w-4 h-4 rounded-full bg-[#163300] text-[#9FE870] text-[10px] font-bold flex items-center justify-center">
+            <span className="absolute top-0.5 right-2 w-4 h-4 rounded-full bg-[#2563EB] text-white text-[10px] font-bold flex items-center justify-center">
               {pendingReceipts.length}
             </span>
           )}
@@ -550,8 +549,8 @@ export default function App() {
           onClick={() => setActiveTab('settings')}
           className={`flex flex-col items-center gap-1 py-1 px-3 text-[11px] cursor-pointer transition ${
             activeTab === 'settings'
-              ? 'text-[#163300] font-semibold'
-              : 'text-[#6A6C6A] font-medium'
+              ? 'text-[#0B1221] font-semibold'
+              : 'text-[#7C8BA1] font-medium'
           }`}
         >
           <SlidersHorizontal className="w-5 h-5" strokeWidth={activeTab === 'settings' ? 2.2 : 1.7} />

@@ -4,19 +4,19 @@
   :root {
     color-scheme: light;
     --manni-bg: #ffffff;
-    --manni-surface: #f2f5f2;
-    --manni-surface-hover: #e8ede7;
-    --manni-pill: #edf0ec;
-    --manni-border: #e4e7e2;
-    --manni-ink: #0e0f0c;
-    --manni-muted: #5d615c;
-    --manni-subtle: #868a84;
-    --manni-forest: #163300;
-    --manni-lime: #9fe870;
-    --manni-lime-hover: #8ede5c;
-    --manni-positive: #2f5711;
-    --manni-danger-bg: #fdecec;
-    --manni-danger: #a8200d;
+    --manni-surface: #f4f6f9;
+    --manni-surface-hover: #e9eef5;
+    --manni-pill: #ebf0f5;
+    --manni-border: #e2e8f0;
+    --manni-ink: #0b1221;
+    --manni-muted: #526077;
+    --manni-subtle: #7c8ba1;
+    --manni-navy: #0b1221;
+    --manni-cobalt: #2563eb;
+    --manni-cobalt-hover: #1d4ed8;
+    --manni-positive: #0d9488;
+    --manni-danger-bg: #fee2e2;
+    --manni-danger: #be123c;
   }
 
   body {
@@ -54,10 +54,10 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d9ddd7;
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #b7bdb4;
+  background: #94a3b8;
 }

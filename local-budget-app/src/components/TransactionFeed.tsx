@@ -67,9 +67,10 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
     let monthIncome = 0;
 
     for (const tx of transactions) {
-      if (!tx.date.startsWith(currentMonthPrefix)) continue;
-      if (tx.type === 'expense') monthExpenses += tx.amount;
-      else monthIncome += tx.amount;
+      if (!String(tx.date || '').startsWith(currentMonthPrefix)) continue;
+      const amt = Number(tx.amount) || 0;
+      if (tx.type === 'expense') monthExpenses += amt;
+      else monthIncome += amt;
     }
 
     const monthSavings = monthIncome - monthExpenses;
@@ -92,15 +93,15 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
         if (selectedCategory !== 'ALL' && tx.category !== selectedCategory) return false;
         if (typeFilter !== 'all' && tx.type !== typeFilter) return false;
         if (!q) return true;
-        const matchMerchant = tx.merchant.toLowerCase().includes(q);
-        const matchNote = tx.note?.toLowerCase().includes(q);
-        const matchCat = tx.category.toLowerCase().includes(q);
-        const matchItems = tx.lineItems?.some((li) => li.name.toLowerCase().includes(q));
+        const matchMerchant = (tx.merchant || '').toLowerCase().includes(q);
+        const matchNote = (tx.note || '').toLowerCase().includes(q);
+        const matchCat = (tx.category || '').toLowerCase().includes(q);
+        const matchItems = tx.lineItems?.some((li) => (li.name || '').toLowerCase().includes(q));
         return matchMerchant || matchNote || matchCat || matchItems;
       })
       .sort((a, b) => {
-        const cmp = b.date.localeCompare(a.date);
-        return cmp !== 0 ? cmp : b.createdAt - a.createdAt;
+        const cmp = String(b.date || '').localeCompare(String(a.date || ''));
+        return cmp !== 0 ? cmp : (b.createdAt || 0) - (a.createdAt || 0);
       });
   }, [transactions, searchQuery, selectedCategory, typeFilter]);
 
@@ -109,18 +110,20 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
     const map = new Map<string, { date: string; dayTotal: number; items: Transaction[] }>();
 
     for (const tx of filteredTransactions) {
-      let group = map.get(tx.date);
+      const dateKey = tx.date || currentMonthPrefix;
+      let group = map.get(dateKey);
       if (!group) {
-        group = { date: tx.date, dayTotal: 0, items: [] };
-        map.set(tx.date, group);
+        group = { date: dateKey, dayTotal: 0, items: [] };
+        map.set(dateKey, group);
         groups.push(group);
       }
       group.items.push(tx);
-      group.dayTotal += tx.type === 'expense' ? -tx.amount : tx.amount;
+      const amt = Number(tx.amount) || 0;
+      group.dayTotal += tx.type === 'expense' ? -amt : amt;
     }
 
     return groups;
-  }, [filteredTransactions]);
+  }, [filteredTransactions, currentMonthPrefix]);
 
   function formatHumanDate(isoDate: string): string {
     const today = new Date().toISOString().split('T')[0];
@@ -143,28 +146,28 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
 
   return (
     <div className="space-y-10 pb-28">
-      {/* Wise/Revolut Editorial Hero & Pill Actions */}
+      {/* Editorial Hero & Pill Actions */}
       <section className="space-y-6">
         <div className="space-y-1.5">
-          <div className="text-sm font-medium text-[#5D615C]">
+          <div className="text-sm font-medium text-[#526077]">
             Spent this month
           </div>
           <div className="flex items-baseline gap-3 flex-wrap">
-            <h1 className="text-4xl sm:text-5xl font-display font-extrabold tabular-nums text-[#0E0F0C] tracking-tight">
+            <h1 className="text-4xl sm:text-5xl font-display font-extrabold tabular-nums text-[#0B1221] tracking-tight">
               {formatCurrency(stats.monthExpenses, currency)}
             </h1>
-            <span className="text-sm font-medium text-[#5D615C] tabular-nums">
+            <span className="text-sm font-medium text-[#526077] tabular-nums">
               of {formatCurrency(monthlyBudget, currency)} budget
             </span>
           </div>
         </div>
 
-        {/* Iconic Wise Pill Action Rail */}
+        {/* Pill Action Rail */}
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
             onClick={onOpenCamera}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-sm transition cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm transition cursor-pointer"
           >
             <Camera className="w-4 h-4" />
             <span>Scan receipt</span>
@@ -173,7 +176,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
           <button
             type="button"
             onClick={onOpenManualEntry}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] font-semibold text-sm transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#EBF0F5] hover:bg-[#E1E8F0] text-[#0B1221] font-semibold text-sm transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             <span>Add entry</span>
@@ -182,7 +185,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
           <button
             type="button"
             onClick={onTriggerFileUpload}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] font-semibold text-sm transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#EBF0F5] hover:bg-[#E1E8F0] text-[#0B1221] font-semibold text-sm transition cursor-pointer"
           >
             <Upload className="w-4 h-4" />
             <span>Upload</span>
@@ -192,7 +195,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
             type="button"
             onClick={onPasteClipboard}
             title="Paste screenshot (Ctrl+V)"
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#EDF0EC] hover:bg-[#E2E7E0] text-[#163300] font-semibold text-sm transition cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[#EBF0F5] hover:bg-[#E1E8F0] text-[#0B1221] font-semibold text-sm transition cursor-pointer"
           >
             <ClipboardPaste className="w-4 h-4" />
             <span>Paste</span>
@@ -200,33 +203,33 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
         </div>
       </section>
 
-      {/* Wise-Style Borderless Warm-Stone Balance Cards */}
+      {/* Borderless Cool-Alabaster Balance Cards */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-[#F2F5F2] rounded-3xl p-6 flex flex-col justify-between min-h-[144px]">
+        <div className="bg-[#F4F6F9] rounded-3xl p-6 flex flex-col justify-between min-h-[144px]">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-[#5D615C]">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#526077]">
               Budget left
             </span>
-            <span className="text-xs font-semibold tabular-nums text-[#5D615C]">
+            <span className="text-xs font-semibold tabular-nums text-[#526077]">
               {Math.round(stats.budgetPct)}% used
             </span>
           </div>
           <div className="space-y-3 mt-4">
             <div
               className={`text-2xl font-display font-bold tabular-nums ${
-                stats.budgetRemaining < 0 ? 'text-[#A8200D]' : 'text-[#0E0F0C]'
+                stats.budgetRemaining < 0 ? 'text-[#BE123C]' : 'text-[#0B1221]'
               }`}
             >
               {formatCurrency(stats.budgetRemaining, currency)}
             </div>
-            <div className="w-full h-1.5 bg-[#E0E5DF] rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-[#DCE3EC] rounded-full overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${
                   stats.budgetPct >= 100
-                    ? 'bg-[#A8200D]'
+                    ? 'bg-[#BE123C]'
                     : stats.budgetPct >= 75
-                    ? 'bg-amber-600'
-                    : 'bg-[#163300]'
+                    ? 'bg-amber-500'
+                    : 'bg-[#2563EB]'
                 }`}
                 style={{ width: `${Math.min(100, stats.budgetPct)}%` }}
               />
@@ -234,50 +237,50 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
           </div>
         </div>
 
-        <div className="bg-[#F2F5F2] rounded-3xl p-6 flex flex-col justify-between min-h-[144px]">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#5D615C]">
+        <div className="bg-[#F4F6F9] rounded-3xl p-6 flex flex-col justify-between min-h-[144px]">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#526077]">
             Income
           </span>
           <div className="mt-4">
-            <div className="text-2xl font-display font-bold tabular-nums text-[#2F5711]">
+            <div className="text-2xl font-display font-bold tabular-nums text-[#0D9488]">
               {stats.monthIncome > 0 ? '+' : ''}
               {formatCurrency(stats.monthIncome, currency)}
             </div>
-            <div className="text-xs text-[#6A6C6A] mt-1">This month inflows</div>
+            <div className="text-xs text-[#7C8BA1] mt-1">This month inflows</div>
           </div>
         </div>
 
-        <div className="bg-[#F2F5F2] rounded-3xl p-6 flex flex-col justify-between min-h-[144px]">
-          <span className="text-xs font-semibold uppercase tracking-wider text-[#5D615C]">
+        <div className="bg-[#F4F6F9] rounded-3xl p-6 flex flex-col justify-between min-h-[144px]">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#526077]">
             Net saved
           </span>
           <div className="mt-4">
             <div
               className={`text-2xl font-display font-bold tabular-nums ${
-                stats.monthSavings >= 0 ? 'text-[#0E0F0C]' : 'text-[#A8200D]'
+                stats.monthSavings >= 0 ? 'text-[#0B1221]' : 'text-[#BE123C]'
               }`}
             >
               {stats.monthSavings >= 0 ? '+' : ''}
               {formatCurrency(stats.monthSavings, currency)}
             </div>
-            <div className="text-xs text-[#6A6C6A] mt-1">Income minus spend</div>
+            <div className="text-xs text-[#7C8BA1] mt-1">Income minus spend</div>
           </div>
         </div>
       </section>
 
       {/* Pending / Offline Queue Strip (Only shown when active) */}
       {pendingReceipts.length > 0 && (
-        <section className="rounded-3xl bg-[#F2F5F2] p-5 sm:p-6 space-y-4">
+        <section className="rounded-3xl bg-[#F4F6F9] p-5 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-full bg-white border border-[#E2E5E0] text-[#163300] flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-white border border-[#E2E8F0] text-[#2563EB] flex items-center justify-center shrink-0">
                 <Clock className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-semibold text-[#0E0F0C] text-sm">
+                <h3 className="font-semibold text-[#0B1221] text-sm">
                   {pendingReceipts.length} receipt{pendingReceipts.length > 1 ? 's' : ''} waiting in queue
                 </h3>
-                <p className="text-xs text-[#5D615C] mt-0.5">
+                <p className="text-xs text-[#526077] mt-0.5">
                   {isOffline
                     ? 'Offline mode active. Saved locally until you reconnect.'
                     : 'Ready to extract into transactions.'}
@@ -291,7 +294,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
                   type="button"
                   disabled={isSyncingQueue}
                   onClick={onSyncQueueNow}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] disabled:opacity-50 text-[#163300] text-xs font-semibold transition cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-50 text-white text-xs font-semibold transition cursor-pointer"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncingQueue ? 'animate-spin' : ''}`} />
                   <span>{isSyncingQueue ? 'Syncing...' : 'Sync now'}</span>
@@ -300,7 +303,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
               <button
                 type="button"
                 onClick={onOpenQueueTab}
-                className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-white hover:bg-[#E8EDE7] text-[#163300] text-xs font-semibold transition cursor-pointer"
+                className="inline-flex items-center gap-1 px-4 py-2 rounded-full bg-white hover:bg-[#E9EEF5] text-[#0B1221] text-xs font-semibold transition cursor-pointer"
               >
                 <span>Open queue</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -314,18 +317,18 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
                 key={item.id}
                 type="button"
                 onClick={onOpenQueueTab}
-                className="flex items-center gap-2.5 bg-white px-3 py-2 rounded-2xl hover:bg-[#FAFBF9] transition shrink-0 text-left cursor-pointer"
+                className="flex items-center gap-2.5 bg-white px-3 py-2 rounded-2xl hover:bg-[#F8FAFC] transition shrink-0 text-left cursor-pointer"
               >
                 <img
                   src={item.imageDataUrl}
                   alt="Queued receipt"
-                  className="w-9 h-9 rounded-xl object-cover bg-[#F2F5F2]"
+                  className="w-9 h-9 rounded-xl object-cover bg-[#F4F6F9]"
                 />
                 <div>
-                  <div className="text-xs font-semibold text-[#0E0F0C] truncate max-w-[120px]">
+                  <div className="text-xs font-semibold text-[#0B1221] truncate max-w-[120px]">
                     {item.fileName || 'Receipt'}
                   </div>
-                  <div className="flex items-center gap-1 text-[11px] text-[#5D615C]">
+                  <div className="flex items-center gap-1 text-[11px] text-[#526077]">
                     {item.status === 'processing' ? (
                       <>
                         <RefreshCw className="w-3 h-3 animate-spin" />
@@ -333,12 +336,12 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
                       </>
                     ) : item.status === 'failed' ? (
                       <>
-                        <AlertCircle className="w-3 h-3 text-[#A8200D]" />
-                        <span className="text-[#A8200D]">Failed</span>
+                        <AlertCircle className="w-3 h-3 text-[#BE123C]" />
+                        <span className="text-[#BE123C]">Failed</span>
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 className="w-3 h-3 text-[#2F5711]" />
+                        <CheckCircle2 className="w-3 h-3 text-[#0D9488]" />
                         <span>Queued</span>
                       </>
                     )}
@@ -353,14 +356,14 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
       {/* Transactions Section */}
       <section className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-display font-bold text-[#0E0F0C]">
+          <h2 className="text-xl font-display font-bold text-[#0B1221]">
             Transactions
           </h2>
           {transactions.length > 0 && (
             <button
               type="button"
               onClick={onExportSummaryCSV}
-              className="text-sm font-semibold text-[#163300] underline underline-offset-4 hover:opacity-75 transition cursor-pointer"
+              className="text-sm font-semibold text-[#2563EB] underline underline-offset-4 hover:opacity-75 transition cursor-pointer"
             >
               Export CSV
             </button>
@@ -368,15 +371,15 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
         </div>
 
         {transactions.length === 0 ? (
-          <div className="rounded-3xl bg-[#F2F5F2] p-12 text-center space-y-4">
-            <div className="w-14 h-14 rounded-full bg-white border border-[#E2E5E0] text-[#163300] flex items-center justify-center mx-auto">
+          <div className="rounded-3xl bg-[#F4F6F9] p-12 text-center space-y-4">
+            <div className="w-14 h-14 rounded-full bg-white border border-[#E2E8F0] text-[#0B1221] flex items-center justify-center mx-auto">
               <Receipt className="w-6 h-6" strokeWidth={1.7} />
             </div>
             <div className="space-y-1">
-              <h3 className="text-base font-display font-bold text-[#0E0F0C]">
+              <h3 className="text-base font-display font-bold text-[#0B1221]">
                 No transactions yet
               </h3>
-              <p className="text-sm text-[#5D615C] max-w-sm mx-auto">
+              <p className="text-sm text-[#526077] max-w-sm mx-auto">
                 Scan a receipt, add an expense manually, or load realistic demo data to explore Manni.
               </p>
             </div>
@@ -384,7 +387,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
               <button
                 type="button"
                 onClick={onOpenManualEntry}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[#9FE870] hover:bg-[#8EDE5C] text-[#163300] font-semibold text-sm transition cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold text-sm transition cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add first expense</span>
@@ -392,7 +395,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
               <button
                 type="button"
                 onClick={onLoadDemoData}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-white hover:bg-[#E8EDE7] text-[#163300] font-semibold text-sm transition cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-white hover:bg-[#E9EEF5] text-[#0B1221] font-semibold text-sm transition cursor-pointer"
               >
                 <span>Load demo data</span>
               </button>
@@ -404,18 +407,18 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
             <div className="space-y-3.5">
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-[#6A6C6A] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Search className="w-4 h-4 text-[#7C8BA1] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Search merchants, notes, or items"
-                    className="w-full pl-11 pr-4 py-2.5 text-sm rounded-full bg-[#F2F5F2] text-[#0E0F0C] placeholder:text-[#6A6C6A] focus:outline-none focus:ring-2 focus:ring-[#163300]/20 transition"
+                    className="w-full pl-11 pr-4 py-2.5 text-sm rounded-full bg-[#F4F6F9] text-[#0B1221] placeholder:text-[#7C8BA1] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 transition"
                   />
                 </div>
 
-                {/* Wise-style Segmented Pill Switch */}
-                <div className="inline-flex rounded-full bg-[#EDF0EC] p-1 text-xs font-semibold self-start sm:self-auto">
+                {/* Segmented Pill Switch */}
+                <div className="inline-flex rounded-full bg-[#EBF0F5] p-1 text-xs font-semibold self-start sm:self-auto">
                   {(['all', 'expense', 'income'] as const).map((t) => (
                     <button
                       key={t}
@@ -423,8 +426,8 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
                       onClick={() => setTypeFilter(t)}
                       className={`px-4 py-1.5 rounded-full capitalize transition cursor-pointer ${
                         typeFilter === t
-                          ? 'bg-white text-[#163300] shadow-2xs'
-                          : 'text-[#5D615C] hover:text-[#0E0F0C]'
+                          ? 'bg-white text-[#0B1221] shadow-2xs'
+                          : 'text-[#526077] hover:text-[#0B1221]'
                       }`}
                     >
                       {t}
@@ -440,8 +443,8 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
                   onClick={() => setSelectedCategory('ALL')}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer ${
                     selectedCategory === 'ALL'
-                      ? 'bg-[#163300] text-white'
-                      : 'bg-[#EDF0EC] text-[#5D615C] hover:text-[#0E0F0C]'
+                      ? 'bg-[#0B1221] text-white'
+                      : 'bg-[#EBF0F5] text-[#526077] hover:text-[#0B1221]'
                   }`}
                 >
                   All ({transactions.length})
@@ -455,8 +458,8 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
                       onClick={() => setSelectedCategory(isActive ? 'ALL' : cat)}
                       className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold shrink-0 transition cursor-pointer ${
                         isActive
-                          ? 'bg-[#163300] text-white'
-                          : 'bg-[#EDF0EC] text-[#5D615C] hover:text-[#0E0F0C]'
+                          ? 'bg-[#0B1221] text-white'
+                          : 'bg-[#EBF0F5] text-[#526077] hover:text-[#0B1221]'
                       }`}
                     >
                       <CategoryIcon category={cat} className="w-3.5 h-3.5" />
@@ -467,10 +470,10 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
               </div>
             </div>
 
-            {/* Airy, Borderless Wise-Style Transaction List */}
+            {/* Airy, Borderless Transaction List */}
             {groupedByDate.length === 0 ? (
               <div className="py-12 text-center">
-                <p className="text-sm text-[#5D615C]">No transactions match your filter.</p>
+                <p className="text-sm text-[#526077]">No transactions match your filter.</p>
                 <button
                   type="button"
                   onClick={() => {
@@ -478,7 +481,7 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
                     setSelectedCategory('ALL');
                     setTypeFilter('all');
                   }}
-                  className="mt-2 text-sm font-semibold text-[#163300] underline underline-offset-4 cursor-pointer"
+                  className="mt-2 text-sm font-semibold text-[#2563EB] underline underline-offset-4 cursor-pointer"
                 >
                   Clear filters
                 </button>
@@ -487,13 +490,13 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
               <div className="space-y-7 pt-1">
                 {groupedByDate.map((group) => (
                   <div key={group.date}>
-                    <div className="flex items-center justify-between pb-2.5 border-b border-[#ECEFEA]">
-                      <span className="text-xs font-semibold text-[#6A6C6A]">
+                    <div className="flex items-center justify-between pb-2.5 border-b border-[#E6EAF0]">
+                      <span className="text-xs font-semibold text-[#7C8BA1]">
                         {formatHumanDate(group.date)}
                       </span>
                       <span
                         className={`text-xs font-semibold tabular-nums ${
-                          group.dayTotal < 0 ? 'text-[#6A6C6A]' : 'text-[#2F5711]'
+                          group.dayTotal < 0 ? 'text-[#7C8BA1]' : 'text-[#0D9488]'
                         }`}
                       >
                         {group.dayTotal > 0 ? '+' : ''}
@@ -501,22 +504,22 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
                       </span>
                     </div>
 
-                    <div className="divide-y divide-[#F2F4F1]">
+                    <div className="divide-y divide-[#F1F5F9]">
                       {group.items.map((tx) => (
                         <button
                           key={tx.id}
                           type="button"
                           onClick={() => onSelectTransaction(tx)}
-                          className="w-full py-4 -mx-3 px-3 rounded-2xl flex items-center justify-between gap-4 hover:bg-[#F7F9F7] transition text-left cursor-pointer group"
+                          className="w-full py-4 -mx-3 px-3 rounded-2xl flex items-center justify-between gap-4 hover:bg-[#F8FAFC] transition text-left cursor-pointer group"
                         >
                           <div className="flex items-center gap-4 min-w-0">
-                            {/* Crisp Wise-Style 44px Circular Outlined Icon */}
-                            <div className="relative w-11 h-11 rounded-full border border-[#E2E5E0] bg-white text-[#163300] flex items-center justify-center shrink-0">
+                            {/* Crisp 44px Circular Outlined Icon */}
+                            <div className="relative w-11 h-11 rounded-full border border-[#E2E8F0] bg-white text-[#0B1221] flex items-center justify-center shrink-0">
                               <CategoryIcon category={tx.category} className="w-[18px] h-[18px]" />
                               {tx.receiptImageDataUrl && (
                                 <span
                                   title="Receipt photo attached"
-                                  className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#9FE870] text-[#163300] flex items-center justify-center"
+                                  className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#2563EB] text-white flex items-center justify-center"
                                 >
                                   <Receipt className="w-2.5 h-2.5" />
                                 </span>
@@ -524,10 +527,10 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
                             </div>
 
                             <div className="min-w-0 space-y-0.5">
-                              <div className="font-semibold text-[#0E0F0C] text-[15px] truncate">
+                              <div className="font-semibold text-[#0B1221] text-[15px] truncate">
                                 {tx.merchant}
                               </div>
-                              <div className="text-[13px] text-[#6A6C6A] truncate">
+                              <div className="text-[13px] text-[#7C8BA1] truncate">
                                 {tx.category}
                                 {tx.lineItems && tx.lineItems.length > 0
                                   ? ` · ${tx.lineItems.length} item${tx.lineItems.length > 1 ? 's' : ''}`
@@ -541,14 +544,14 @@ export const TransactionFeed: React.FC<TransactionFeedProps> = ({
                           <div className="text-right tabular-nums shrink-0">
                             <div
                               className={`text-[15px] font-bold ${
-                                tx.type === 'income' ? 'text-[#2F5711]' : 'text-[#0E0F0C]'
+                                tx.type === 'income' ? 'text-[#0D9488]' : 'text-[#0B1221]'
                               }`}
                             >
                               {tx.type === 'income' ? '+' : '-'}
                               {formatCurrency(tx.amount, tx.currency || currency)}
                             </div>
                             {tx.note && tx.lineItems && tx.lineItems.length > 0 && (
-                              <div className="text-[12px] text-[#868A84] truncate max-w-[140px]">
+                              <div className="text-[12px] text-[#7C8BA1] truncate max-w-[140px]">
                                 {tx.note}
                               </div>
                             )}
