@@ -157,13 +157,17 @@ export async function processSinglePendingReceipt(
       'Receipt extraction'
     );
 
+    const shortModel = extracted.modelUsed
+      ? extracted.modelUsed.replace(/:free$/i, '').split('/').pop()
+      : '';
+
     const engineTag =
       extracted.extractionEngine === 'openrouter'
-        ? 'OpenRouter Vision'
+        ? `OpenRouter (${shortModel || 'Vision'})`
         : extracted.extractionEngine === 'groq'
-        ? 'Groq AI'
+        ? `Groq (${shortModel || 'AI'})`
         : extracted.extractionEngine === 'gemini'
-        ? 'Gemini AI'
+        ? `Gemini (${shortModel || 'AI'})`
         : 'Local OCR';
 
     const newTx: Transaction = {
@@ -200,7 +204,7 @@ export async function processSinglePendingReceipt(
         transactionId: newTx.id,
         message: `Used Local OCR (${newTx.merchant} ${newTx.currency} ${newTx.amount.toFixed(
           2
-        )}). AI error: ${extracted.fallbackReason.slice(0, 90)}`,
+        )}). Reason: ${extracted.fallbackReason.slice(0, 100)}`,
       });
     } else {
       emitNotification({

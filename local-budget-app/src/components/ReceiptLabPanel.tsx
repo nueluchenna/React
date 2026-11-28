@@ -88,75 +88,61 @@ export const ReceiptLabPanel: React.FC<ReceiptLabPanelProps> = ({
       const groqKey = await getSetting<string>('groqApiKey', '');
       const groqModel = await getSetting<string>('groqModel', DEFAULT_GROQ_MODEL);
 
-      if (provider === 'openrouter' && openRouterKey.trim()) {
-        const orParsed = await parseReceiptWithOpenRouter({
-          imageDataUrl: imgUrl,
-          apiKey: openRouterKey.trim(),
-          modelName: openRouterModel,
-          defaultCurrency,
-        });
-        setAiResult({
-          providerLabel: `OpenRouter (${orParsed.modelUsed})`,
-          modeLabel: 'direct_vision',
-          durationMs: orParsed.durationMs,
-          data: {
-            merchant: orParsed.merchant,
-            date: orParsed.date,
-            currency: orParsed.currency,
-            totalAmount: orParsed.totalAmount,
-            taxAmount: orParsed.taxAmount,
-            category: orParsed.category,
-            summaryNote: orParsed.summaryNote,
-            lineItems: orParsed.lineItems,
-          },
-        });
-      } else if (groqKey.trim()) {
-        const groqParsed = await parseReceiptTextWithGroq({
-          rawOcrText: rawOcrText || '',
-          imageDataUrl: imgUrl,
-          apiKey: groqKey.trim(),
-          modelName: groqModel,
-          defaultCurrency,
-        });
-        setAiResult({
-          providerLabel: `Groq (${groqParsed.modelUsed})`,
-          modeLabel: groqParsed.modeUsed,
-          durationMs: groqParsed.durationMs,
-          data: {
-            merchant: groqParsed.merchant,
-            date: groqParsed.date,
-            currency: groqParsed.currency,
-            totalAmount: groqParsed.totalAmount,
-            taxAmount: groqParsed.taxAmount,
-            category: groqParsed.category,
-            summaryNote: groqParsed.summaryNote,
-            lineItems: groqParsed.lineItems,
-          },
-        });
-      } else if (openRouterKey.trim()) {
-        const orParsed = await parseReceiptWithOpenRouter({
-          imageDataUrl: imgUrl,
-          apiKey: openRouterKey.trim(),
-          modelName: openRouterModel,
-          defaultCurrency,
-        });
-        setAiResult({
-          providerLabel: `OpenRouter (${orParsed.modelUsed})`,
-          modeLabel: 'direct_vision',
-          durationMs: orParsed.durationMs,
-          data: {
-            merchant: orParsed.merchant,
-            date: orParsed.date,
-            currency: orParsed.currency,
-            totalAmount: orParsed.totalAmount,
-            taxAmount: orParsed.taxAmount,
-            category: orParsed.category,
-            summaryNote: orParsed.summaryNote,
-            lineItems: orParsed.lineItems,
-          },
-        });
+      if (provider === 'openrouter') {
+        if (!openRouterKey.trim()) {
+          setAiError('OpenRouter is selected in Settings, but no OpenRouter API key (sk-or-...) is saved yet.');
+        } else {
+          const orParsed = await parseReceiptWithOpenRouter({
+            imageDataUrl: imgUrl,
+            apiKey: openRouterKey.trim(),
+            modelName: openRouterModel,
+            defaultCurrency,
+          });
+          setAiResult({
+            providerLabel: `OpenRouter (${orParsed.modelUsed})`,
+            modeLabel: 'direct_vision',
+            durationMs: orParsed.durationMs,
+            data: {
+              merchant: orParsed.merchant,
+              date: orParsed.date,
+              currency: orParsed.currency,
+              totalAmount: orParsed.totalAmount,
+              taxAmount: orParsed.taxAmount,
+              category: orParsed.category,
+              summaryNote: orParsed.summaryNote,
+              lineItems: orParsed.lineItems,
+            },
+          });
+        }
+      } else if (provider === 'groq') {
+        if (!groqKey.trim()) {
+          setAiError('Groq is selected in Settings, but no Groq API key (gsk_...) is saved yet.');
+        } else {
+          const groqParsed = await parseReceiptTextWithGroq({
+            rawOcrText: rawOcrText || '',
+            imageDataUrl: imgUrl,
+            apiKey: groqKey.trim(),
+            modelName: groqModel,
+            defaultCurrency,
+          });
+          setAiResult({
+            providerLabel: `Groq (${groqParsed.modelUsed})`,
+            modeLabel: groqParsed.modeUsed,
+            durationMs: groqParsed.durationMs,
+            data: {
+              merchant: groqParsed.merchant,
+              date: groqParsed.date,
+              currency: groqParsed.currency,
+              totalAmount: groqParsed.totalAmount,
+              taxAmount: groqParsed.taxAmount,
+              category: groqParsed.category,
+              summaryNote: groqParsed.summaryNote,
+              lineItems: groqParsed.lineItems,
+            },
+          });
+        }
       } else {
-        setAiError('No OpenRouter or Groq API key saved in Settings yet.');
+        setAiError('Select OpenRouter or Groq in Settings to test in Scanner Lab.');
       }
     } catch (err) {
       setAiError(err instanceof Error ? err.message : String(err));

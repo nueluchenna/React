@@ -44,6 +44,7 @@ export interface ExtractedReceiptData {
   summaryNote: string;
   lineItems: LineItem[];
   extractionEngine: 'openrouter' | 'gemini' | 'groq' | 'tesseract_fallback';
+  modelUsed?: string;
   fallbackReason?: string;
 }
 
@@ -154,6 +155,7 @@ export async function parseReceiptWithGroq(
     summaryNote: parsed.summaryNote,
     lineItems: parsed.lineItems,
     extractionEngine: 'groq',
+    modelUsed: parsed.modelUsed,
   };
 }
 
@@ -259,6 +261,7 @@ export async function parseReceiptWithGemini(
         ? lineItems
         : [{ name: String(parsed.merchant || 'Receipt Purchase'), quantity: 1, unitPrice: totalAmount, totalPrice: totalAmount }],
     extractionEngine: 'gemini',
+    modelUsed: modelName || 'gemini-2.5-flash',
   };
 }
 
@@ -284,6 +287,10 @@ export async function parseReceiptWithLocalOCR(
   };
 }
 
+/**
+ * Strictly honors the user's selected AI provider (OpenRouter, Groq, or Gemini)
+ * and never silently falls back to a different AI provider behind the scenes.
+ */
 export async function extractReceiptSmart(
   imageDataUrl: string,
   options?: {
@@ -300,126 +307,103 @@ export async function extractReceiptSmart(
   const geminiModel = await getSetting<string>('geminiModel', 'gemini-2.5-flash');
   const defaultCurrency = await getSetting<string>('defaultCurrency', 'EUR');
 
-  if (!options?.forceLocalOCR) {
-    const effectiveOpenRouterKey =
-      openRouterKey.trim() ||
-      (groqApiKey.trim().startsWith('sk-or-') ? groqApiKey.trim() : '') ||
-      (geminiApiKey.trim().startsWith('sk-or-') ? geminiApiKey.trim() : '');
+  if (options?.forceLocalOCR) {
+    return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress);
+  }
 
-    if (
-      (aiProvider === 'openrouter' ||
-        groqApiKey.trim().startsWith('sk-or-') ||
-        geminiApiKey.trim().startsWith('sk-or-')) &&
-      effectiveOpenRouterKey.length > 10
-    ) {
-      try {
-        const res = await parseReceiptWithOpenRouter({
-          imageDataUrl,
-          apiKey: effectiveOpenRouterKey,
-          modelName: openRouterModel,
-          defaultCurrency,
-        });
-        return {
-          merchant: res.merchant,
-          date: res.date,
-          currency: res.currency,
-          totalAmount: res.totalAmount,
-          taxAmount: res.taxAmount,
-          category: res.category,
-          summaryNote: res.summaryNote,
-          lineItems: res.lineItems,
-          extractionEngine: 'openrouter',
-        };
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
-        console.warn('OpenRouter extraction failed:', reason);
-        // Smart cross-provider fallback: if OpenRouter is 429 rate-limited and user also saved a Groq key, use Groq!
-        const backupGroqKey =
-          groqApiKey.trim() || (geminiApiKey.trim().startsWith('gsk_') ? geminiApiKey.trim() : '');
-        if (backupGroqKey.length > 10) {
-          try {
-            return await parseReceiptWithGroq(
-              imageDataUrl,
-              backupGroqKey,
-              groqModel,
-              defaultCurrency,
-              options?.onProgress
-            );
-          } catch (groqErr) {
-            console.warn('Backup Groq extraction also failed:', groqErr);
-          }
-        }
-        return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress, reason);
-      }
+  // 1. OpenRouter selected (or user pasted an sk-or- key in another box)
+  const effectiveOpenRouterKey =
+    openRouterKey.trim() ||
+    (groqApiKey.trim().startsWith('sk-or-') ? groqApiKey.trim() : '') ||
+    (geminiApiKey.trim().startsWith('sk-or-') ? geminiApiKey.trim() : '');
+
+  if (aiProvider === 'openrouter') {
+    if (effectiveOpenRouterKey.length <= 10) {
+      return await parseReceiptWithLocalOCR(
+        imageDataUrl,
+        defaultCurrency,
+        options?.onProgress,
+        'OpenRouter is selected in Settings, but no OpenRouter API key (sk-or-...) is saved.'
+      );
     }
 
-    const effectiveGroqKey =
-      groqApiKey.trim() || (geminiApiKey.trim().startsWith('gsk_') ? geminiApiKey.trim() : '');
+    try {
+      const res = await parseReceiptWithOpenRouter({
+        imageDataUrl,
+        apiKey: effectiveOpenRouterKey,
+        modelName: openRouterModel,
+        defaultCurrency,
+      });
+      return {
+        merchant: res.merchant,
+        date: res.date,
+        currency: res.currency,
+        totalAmount: res.totalAmount,
+        taxAmount: res.taxAmount,
+        category: res.category,
+        summaryNote: res.summaryNote,
+        lineItems: res.lineItems,
+        extractionEngine: 'openrouter',
+        modelUsed: res.modelUsed,
+      };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.warn('OpenRouter extraction failed, falling back to Local OCR:', reason);
+      return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress, reason);
+    }
+  }
 
-    if ((aiProvider === 'groq' || geminiApiKey.trim().startsWith('gsk_')) && effectiveGroqKey.length > 10) {
-      try {
-        return await parseReceiptWithGroq(
-          imageDataUrl,
-          effectiveGroqKey,
-          groqModel,
-          defaultCurrency,
-          options?.onProgress
-        );
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
-        console.warn('Groq extraction failed, falling back to local OCR:', reason);
-        return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress, reason);
-      }
+  // 2. Groq selected
+  const effectiveGroqKey =
+    groqApiKey.trim() || (geminiApiKey.trim().startsWith('gsk_') ? geminiApiKey.trim() : '');
+
+  if (aiProvider === 'groq') {
+    if (effectiveGroqKey.length <= 10) {
+      return await parseReceiptWithLocalOCR(
+        imageDataUrl,
+        defaultCurrency,
+        options?.onProgress,
+        'Groq is selected in Settings, but no Groq API key (gsk_...) is saved.'
+      );
     }
 
-    if (geminiApiKey && geminiApiKey.trim().length > 10) {
-      try {
-        return await parseReceiptWithGemini(imageDataUrl, geminiApiKey.trim(), geminiModel, defaultCurrency);
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
-        console.warn('Gemini extraction failed, falling back to local OCR:', reason);
-        return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress, reason);
-      }
+    try {
+      return await parseReceiptWithGroq(
+        imageDataUrl,
+        effectiveGroqKey,
+        groqModel,
+        defaultCurrency,
+        options?.onProgress
+      );
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.warn('Groq extraction failed, falling back to Local OCR:', reason);
+      return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress, reason);
+    }
+  }
+
+  // 3. Gemini selected
+  if (aiProvider === 'gemini') {
+    if (!geminiApiKey || geminiApiKey.trim().length <= 10) {
+      return await parseReceiptWithLocalOCR(
+        imageDataUrl,
+        defaultCurrency,
+        options?.onProgress,
+        'Gemini is selected in Settings, but no Gemini API key is saved.'
+      );
     }
 
-    if (effectiveOpenRouterKey.length > 10) {
-      try {
-        const res = await parseReceiptWithOpenRouter({
-          imageDataUrl,
-          apiKey: effectiveOpenRouterKey,
-          modelName: openRouterModel,
-          defaultCurrency,
-        });
-        return {
-          merchant: res.merchant,
-          date: res.date,
-          currency: res.currency,
-          totalAmount: res.totalAmount,
-          taxAmount: res.taxAmount,
-          category: res.category,
-          summaryNote: res.summaryNote,
-          lineItems: res.lineItems,
-          extractionEngine: 'openrouter',
-        };
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
-        return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress, reason);
-      }
-    }
-
-    if (effectiveGroqKey.length > 10) {
-      try {
-        return await parseReceiptWithGroq(
-          imageDataUrl,
-          effectiveGroqKey,
-          groqModel,
-          defaultCurrency,
-          options?.onProgress
-        );
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
-        return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress, reason);
-      }
+    try {
+      return await parseReceiptWithGemini(
+        imageDataUrl,
+        geminiApiKey.trim(),
+        geminiModel,
+        defaultCurrency
+      );
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.warn('Gemini extraction failed, falling back to Local OCR:', reason);
+      return await parseReceiptWithLocalOCR(imageDataUrl, defaultCurrency, options?.onProgress, reason);
     }
   }
 
@@ -427,7 +411,7 @@ export async function extractReceiptSmart(
     imageDataUrl,
     defaultCurrency,
     options?.onProgress,
-    options?.forceLocalOCR ? undefined : 'No AI API key configured'
+    'No AI API key configured'
   );
 }
 
@@ -500,14 +484,13 @@ Include exactly 3 savingTips.`;
     }
   }
 
-  if ((aiProvider === 'groq' || apiKey.trim().startsWith('gsk_')) && (groqApiKey.trim() || apiKey.trim()).length > 10) {
+  if (aiProvider === 'groq' && groqApiKey.trim().length > 10) {
     try {
-      const keyToUse = groqApiKey.trim() || apiKey.trim();
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${keyToUse}`,
+          Authorization: `Bearer ${groqApiKey.trim()}`,
         },
         body: JSON.stringify({
           model: groqModel || DEFAULT_GROQ_MODEL,
@@ -533,7 +516,7 @@ Include exactly 3 savingTips.`;
     }
   }
 
-  if (apiKey && apiKey.trim().length > 10 && !apiKey.trim().startsWith('gsk_')) {
+  if (aiProvider === 'gemini' && apiKey && apiKey.trim().length > 10) {
     try {
       const { client } = createGeminiClient(apiKey);
       const response = await client.models.generateContent({

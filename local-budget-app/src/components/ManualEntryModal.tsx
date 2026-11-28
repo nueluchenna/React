@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   X,
   Delete,
@@ -8,6 +8,8 @@ import {
   ImagePlus,
   Calculator,
   RotateCcw,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import {
   db,
@@ -51,6 +53,9 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
   const [receiptDataUrl, setReceiptDataUrl] = useState<string | undefined>();
   const [showKeypad, setShowKeypad] = useState(false);
   const [merchantFocused, setMerchantFocused] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const submitLockRef = useRef(false);
 
   const currencySymbol = CURRENCY_SYMBOLS[currency] ?? `${currency} `;
 
@@ -108,6 +113,7 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
     setType(s.type);
     if (s.note) setNote(s.note);
     setMerchantFocused(false);
+    setFormError(null);
   };
 
   const evaluateExpression = (expr: string): number => {
@@ -136,6 +142,7 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
   const numericAmount = useMemo(() => evaluateExpression(amountInput), [amountInput]);
 
   const handleKeyPress = (key: string) => {
+    setFormError(null);
     if (key === 'C') {
       setAmountInput('');
       return;
@@ -161,38 +168,53 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitLockRef.current || isSubmitting) return;
+
     const finalAmount = evaluateExpression(amountInput);
-    if (finalAmount <= 0) return;
+    if (finalAmount <= 0) {
+      setFormError('Enter an amount greater than 0.00 before saving.');
+      return;
+    }
 
-    const finalCategory: SpendeeCategory =
-      type === 'income' && category !== 'Income' ? 'Income' : category;
+    submitLockRef.current = true;
+    setIsSubmitting(true);
+    setFormError(null);
 
-    const newTx: Transaction = {
-      id: crypto.randomUUID(),
-      type,
-      amount: finalAmount,
-      currency,
-      category: finalCategory,
-      merchant: merchant.trim() || finalCategory,
-      date,
-      createdAt: Date.now(),
-      note: note.trim() || `${finalCategory} entry`,
-      lineItems: [
-        {
-          name: note.trim() || merchant.trim() || finalCategory,
-          quantity: 1,
-          unitPrice: finalAmount,
-          totalPrice: finalAmount,
-        },
-      ],
-      receiptImageDataUrl: receiptDataUrl,
-      source: 'manual',
-      syncStatus: 'local_only',
-    };
+    try {
+      const finalCategory: SpendeeCategory =
+        type === 'income' && category !== 'Income' ? 'Income' : category;
 
-    await db.transactions.put(newTx);
-    onSaved(newTx);
-    onClose();
+      const newTx: Transaction = {
+        id: crypto.randomUUID(),
+        type,
+        amount: finalAmount,
+        currency,
+        category: finalCategory,
+        merchant: merchant.trim() || finalCategory,
+        date,
+        createdAt: Date.now(),
+        note: note.trim() || `${finalCategory} entry`,
+        lineItems: [
+          {
+            name: note.trim() || merchant.trim() || finalCategory,
+            quantity: 1,
+            unitPrice: finalAmount,
+            totalPrice: finalAmount,
+          },
+        ],
+        receiptImageDataUrl: receiptDataUrl,
+        source: 'manual',
+        syncStatus: 'local_only',
+      };
+
+      await db.transactions.put(newTx);
+      onSaved(newTx);
+      onClose();
+    } catch (err) {
+      submitLockRef.current = false;
+      setIsSubmitting(false);
+      setFormError(err instanceof Error ? err.message : 'Failed to save transaction.');
+    }
   };
 
   const categoriesToShow = useMemo(
@@ -256,6 +278,82 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 pb-6 space-y-5">
+          {/* Amount Input First so user immediately enters the figure */}
+          <div className="p-5 rounded-3xl bg-[#F4F6F9]">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-[#526077]">
+                Amount ({currency})
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowKeypad((k) => !k)}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:opacity-75 cursor-pointer"
+              >
+                <Calculator className="w-3.5 h-3.5" />
+                <span>{showKeypad ? 'Hide keypad' : 'Calculator'}</span>
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`text-3xl font-display font-bold ${
+                  type === 'income' ? 'text-[#0D9488]' : 'text-[#0B1221]'
+                }`}
+              >
+                {type === 'income' ? '+' : ''}
+                {currencySymbol}
+              </span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={amountInput}
+                onChange={(e) => {
+                  setAmountInput(e.target.value);
+                  setFormError(null);
+                }}
+                placeholder="0.00"
+                autoFocus
+                className="w-full text-4xl font-display font-extrabold tabular-nums text-[#0B1221] bg-transparent focus:outline-none placeholder:text-[#94A3B8]"
+              />
+            </div>
+
+            {amountInput && /[+\-*/]/.test(amountInput) && numericAmount > 0 && (
+              <div className="text-xs text-[#526077] mt-1.5 tabular-nums font-medium">
+                = {formatCurrency(numericAmount, currency)}
+              </div>
+            )}
+          </div>
+
+          {formError && (
+            <div className="p-3 rounded-2xl bg-[#FEE2E2] text-xs text-[#BE123C] flex items-center gap-2 font-medium">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+
+          {showKeypad && (
+            <div className="grid grid-cols-4 gap-2">
+              {['7', '8', '9', '+', '4', '5', '6', '-', '1', '2', '3', '*', '.', '0', '⌫', '='].map(
+                (key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => handleKeyPress(key)}
+                    className={`py-2.5 rounded-2xl font-semibold text-sm transition active:scale-95 cursor-pointer ${
+                      ['+', '-', '*', '='].includes(key)
+                        ? 'bg-[#0B1221] text-white'
+                        : key === '⌫'
+                        ? 'bg-[#FEE2E2] text-[#BE123C] flex items-center justify-center'
+                        : 'bg-[#F4F6F9] text-[#0B1221] hover:bg-[#E9EEF5]'
+                    }`}
+                  >
+                    {key === '⌫' ? <Delete className="w-4 h-4 mx-auto" /> : key}
+                  </button>
+                )
+              )}
+            </div>
+          )}
+
           {/* Merchant Input with Recurring Suggestions */}
           <div className="relative">
             <label className="block text-xs font-medium text-[#526077] mb-1.5 flex items-center gap-1.5">
@@ -271,8 +369,7 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
                 setMerchant(e.target.value);
                 setMerchantFocused(true);
               }}
-              placeholder="e.g. Aldi, Lidl, Rent, Coffee"
-              autoFocus
+              placeholder="e.g. Aldi, Lidl, Rent, Coffee (optional)"
               className="w-full px-4 py-3 rounded-2xl bg-[#F4F6F9] text-sm font-medium text-[#0B1221] placeholder:text-[#7C8BA1] focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 transition"
             />
 
@@ -332,72 +429,6 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
                   </span>
                 </button>
               ))}
-            </div>
-          )}
-
-          {/* Amount Input (Keypad hidden by default) */}
-          <div className="p-5 rounded-3xl bg-[#F4F6F9]">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-[#526077]">
-                Amount ({currency})
-              </label>
-              <button
-                type="button"
-                onClick={() => setShowKeypad((k) => !k)}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:opacity-75 cursor-pointer"
-              >
-                <Calculator className="w-3.5 h-3.5" />
-                <span>{showKeypad ? 'Hide keypad' : 'Calculator'}</span>
-              </button>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <span
-                className={`text-3xl font-display font-bold ${
-                  type === 'income' ? 'text-[#0D9488]' : 'text-[#0B1221]'
-                }`}
-              >
-                {type === 'income' ? '+' : ''}
-                {currencySymbol}
-              </span>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={amountInput}
-                onChange={(e) => setAmountInput(e.target.value)}
-                placeholder="0.00"
-                required
-                className="w-full text-4xl font-display font-extrabold tabular-nums text-[#0B1221] bg-transparent focus:outline-none placeholder:text-[#94A3B8]"
-              />
-            </div>
-
-            {amountInput && /[+\-*/]/.test(amountInput) && numericAmount > 0 && (
-              <div className="text-xs text-[#526077] mt-1.5 tabular-nums font-medium">
-                = {formatCurrency(numericAmount, currency)}
-              </div>
-            )}
-          </div>
-
-          {showKeypad && (
-            <div className="grid grid-cols-4 gap-2">
-              {['7', '8', '9', '+', '4', '5', '6', '-', '1', '2', '3', '*', '.', '0', '⌫', '='].map(
-                (key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => handleKeyPress(key)}
-                    className={`py-2.5 rounded-2xl font-semibold text-sm transition active:scale-95 cursor-pointer ${
-                      ['+', '-', '*', '='].includes(key)
-                        ? 'bg-[#0B1221] text-white'
-                        : key === '⌫'
-                        ? 'bg-[#FEE2E2] text-[#BE123C] flex items-center justify-center'
-                        : 'bg-[#F4F6F9] text-[#0B1221] hover:bg-[#E9EEF5]'
-                    }`}
-                  >
-                    {key === '⌫' ? <Delete className="w-4 h-4 mx-auto" /> : key}
-                  </button>
-                )
-              )}
             </div>
           )}
 
@@ -474,10 +505,15 @@ export const ManualEntryModal: React.FC<ManualEntryModalProps> = ({
 
             <button
               type="submit"
-              disabled={numericAmount <= 0}
-              className="px-6 py-2.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-40 text-white font-semibold text-sm transition cursor-pointer"
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] disabled:opacity-50 text-white font-semibold text-sm transition cursor-pointer"
             >
-              Save {numericAmount > 0 ? formatCurrency(numericAmount, currency) : ''}
+              {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>
+                {isSubmitting
+                  ? 'Saving...'
+                  : `Save ${numericAmount > 0 ? formatCurrency(numericAmount, currency) : ''}`}
+              </span>
             </button>
           </div>
         </form>

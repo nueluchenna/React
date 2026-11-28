@@ -14,6 +14,16 @@ import { compressImageToDataUrl } from '../utils/imageCompression';
 
 export const DEFAULT_OPENROUTER_MODEL = 'openrouter/free';
 
+export const BUILTIN_FREE_OPENROUTER_VISION_MODELS: string[] = [
+  'openrouter/free',
+  'nvidia/nemotron-nano-12b-v2-vl:free',
+  'qwen/qwen2.5-vl-32b-instruct:free',
+  'qwen/qwen2.5-vl-72b-instruct:free',
+  'mistralai/mistral-small-3.1-24b-instruct:free',
+  'meta-llama/llama-3.2-11b-vision-instruct:free',
+  'google/gemma-3-27b-it:free',
+];
+
 export interface OpenRouterParsedReceipt {
   merchant: string;
   date: string;
@@ -57,7 +67,7 @@ function extractJsonObject(raw: string): string | null {
 
 /**
  * Fetches live `:free` vision-capable models from OpenRouter's public catalog,
- * prioritizing fast non-thinking vision models (Gemma / Qwen VL / Llama Vision).
+ * prioritizing fast vision models (NVIDIA Nemotron VL, Qwen VL, Mistral, Llama Vision).
  */
 export async function fetchOpenRouterFreeVisionModels(): Promise<string[]> {
   const res = await fetch('https://openrouter.ai/api/v1/models');
@@ -77,8 +87,6 @@ export async function fetchOpenRouterFreeVisionModels(): Promise<string[]> {
 
   const scoreModel = (id: string) => {
     const lower = id.toLowerCase();
-    // Prioritize fast, reliable multimodal models (Nemotron Omni / Super VL, Qwen VL, Mistral/Pixtral)
-    // and push frequently rate-limited Gemma & heavy reasoning models lower
     if (lower.includes('nemotron') && lower.includes('nano')) return 0;
     if (lower.includes('nemotron') && (lower.includes('vl') || lower.includes('omni'))) return 1;
     if (lower.includes('qwen') && lower.includes('vl')) return 2;
@@ -116,11 +124,11 @@ export async function testOpenRouterApiKey(
     return { ok: false, provider: 'OpenRouter', message: 'OpenRouter API key is empty.' };
   }
 
-  let availableModels: string[] = [DEFAULT_OPENROUTER_MODEL];
+  let availableModels: string[] = [...BUILTIN_FREE_OPENROUTER_VISION_MODELS];
   try {
     availableModels = await fetchOpenRouterFreeVisionModels();
   } catch {
-    // keep default
+    // keep builtin defaults
   }
 
   const targetModel = (modelName || DEFAULT_OPENROUTER_MODEL).trim();
@@ -171,7 +179,7 @@ export async function testOpenRouterApiKey(
       provider: 'OpenRouter',
       availableModels,
       message: isTimeout
-        ? `OpenRouter timed out on "${targetModel}". Click "Load free models" and pick a specific fast :free vision model (like Gemma or Qwen VL).`
+        ? `OpenRouter timed out on "${targetModel}". Select another fast :free vision model from the dropdown.`
         : `Network error connecting to OpenRouter: ${
             err instanceof Error ? err.message : String(err)
           }`,
@@ -205,7 +213,6 @@ async function callOpenRouterSingleModel(params: {
         model: params.model,
         temperature: 0.1,
         max_tokens: 4096,
-        // Keep thinking minimal so reasoning models answer fast and never hit finish_reason: length
         reasoning: { effort: 'low' },
         messages: [
           { role: 'system', content: params.systemPrompt },
@@ -255,7 +262,6 @@ async function callOpenRouterSingleModel(params: {
       return { jsonText: jsonFromContent, actualModel };
     }
 
-    // Some reasoning models put JSON inside reasoning when content is empty
     const jsonFromReasoning = extractJsonObject(rawReasoning);
     if (jsonFromReasoning) {
       return { jsonText: jsonFromReasoning, actualModel };
@@ -280,9 +286,8 @@ async function callOpenRouterSingleModel(params: {
 
 /**
  * Direct Multimodal Vision Receipt Extraction via OpenRouter.
- * Downscales image to a crisp 1024px / 0.72 JPEG for fast upload & vision tokenization,
- * enforces a strict timeout, and automatically falls back to a fast `:free` vision model
- * if `openrouter/free` stalls or returns empty output.
+ * Always tries the user's selected model first. If that specific free endpoint is temporarily
+ * rate-limited or unavailable, falls back across other OpenRouter `:free` vision models.
  */
 export async function parseReceiptWithOpenRouter(params: {
   imageDataUrl: string;
@@ -295,7 +300,6 @@ export async function parseReceiptWithOpenRouter(params: {
   const defaultCurrency = params.defaultCurrency || 'EUR';
   const targetModel = (params.modelName || DEFAULT_OPENROUTER_MODEL).trim();
 
-  // Fast vision-sized payload (~100-180 KB instead of 1MB+) while keeping receipt text crisp
   const visionImageDataUrl = await compressImageToDataUrl(
     params.imageDataUrl,
     1024,
@@ -324,19 +328,22 @@ CRITICAL RULES:
 5. Strip leading 5-6 digit SKU codes. NEVER invent fake "Miscellaneous" filler items.
 6. Return ONLY raw JSON with no markdown fences or commentary.`;
 
-  // When `openrouter/free` is selected, try fast specific `:free` vision models (like Nemotron VL)
-  // first before falling back to the generic `openrouter/free` router (which often routes to slow particle-1).
-  let candidates: string[] = [targetModel];
-  if (targetModel === DEFAULT_OPENROUTER_MODEL) {
-    try {
-      const liveFree = (await fetchOpenRouterFreeVisionModels()).filter(
-        (m) => m !== DEFAULT_OPENROUTER_MODEL
-      );
-      candidates = [...liveFree.slice(0, 4), DEFAULT_OPENROUTER_MODEL];
-    } catch {
-      candidates = [DEFAULT_OPENROUTER_MODEL];
-    }
+  let liveFree: string[] = [];
+  try {
+    liveFree = (await fetchOpenRouterFreeVisionModels()).filter(
+      (m) => m !== DEFAULT_OPENROUTER_MODEL && m !== targetModel
+    );
+  } catch {
+    liveFree = BUILTIN_FREE_OPENROUTER_VISION_MODELS.filter(
+      (m) => m !== DEFAULT_OPENROUTER_MODEL && m !== targetModel
+    );
   }
+
+  // Always try the user's explicit model first (unless openrouter/free is chosen, where we try fast nemotron/qwen vision models first)
+  const candidates: string[] =
+    targetModel === DEFAULT_OPENROUTER_MODEL
+      ? [...liveFree.slice(0, 4), DEFAULT_OPENROUTER_MODEL]
+      : [targetModel, ...liveFree.slice(0, 3), DEFAULT_OPENROUTER_MODEL];
 
   const errors: string[] = [];
   let winner: { jsonText: string; actualModel: string } | null = null;
